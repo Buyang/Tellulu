@@ -1,0 +1,106 @@
+# Debugging Stability API Integration
+
+- [x] Analyze current Stability API configuration <!-- id: 0 -->
+    - [x] Check `main.dart` for default model ID <!-- id: 1 -->
+    - [x] Verify `StabilityService` implementation matches API docs <!-- id: 2 -->
+- [x] Verify Fixes <!-- id: 3 -->
+    - [x] Confirm Content-Type handling for Multipart requests <!-- id: 4 -->
+    - [x] Add explicit dimensions for SDXL <!-- id: 7 -->
+    - [x] Confirm Model ID validity <!-- id: 5 -->
+- [x] Test Connectivity (Manual) <!-- id: 6 -->
+    - [x] Create verification script <!-- id: 8 -->
+    - [x] User to run `flutter test test/stability_api_test.dart` <!-- id: 9 -->
+- [x] Relocate Flutter SDK <!-- id: 56 -->
+    - [x] Move from `tools/flutter` to `~/flutter` <!-- id: 57 -->
+    - [x] Update Shell Config (`.zshrc`, `.bash_profile`) <!-- id: 58 -->
+- [/] Install CocoaPods <!-- id: 10 -->
+    - [x] Locate installation method (brew or gem) <!-- id: 11 -->
+    - [x] Install CocoaPods (Failed: System Ruby 2.6 incompatible) <!-- id: 12 -->
+    - [/] Setup Clean Environment (Script) <!-- id: 14 -->
+        - [x] Create `setup_mac_env.sh` <!-- id: 15 -->
+        - [x] User runs script (Success!) <!-- id: 16 -->
+    - [ ] Verify installation <!-- id: 13 -->
+- [x] Fix Google Fonts / Network Access <!-- id: 17 -->
+    - [x] Check Entitlements <!-- id: 18 -->
+    - [x] Add `com.apple.security.network.client` <!-- id: 19 -->
+    - [x] Hot Restart/Rebuild <!-- id: 20 -->
+- [/] Refine Sign Up UI <!-- id: 21 -->
+    - [x] Locate Sign Up Page <!-- id: 22 -->
+    - [x] Remove Back Button/Arrow <!-- id: 23 -->
+    - [x] Verify UI <!-- id: 24 -->
+    - [x] Remove Back Button/Arrow <!-- id: 23 -->
+    - [x] Verify UI <!-- id: 24 -->
+- [/] Address Sign Up Feedback <!-- id: 25 -->
+    - [x] Remove empty AppBar (whitespace) <!-- id: 26 -->
+    - [x] Improve Google/Apple Logos <!-- id: 27 -->
+    - [x] Fix Sign Up Button Font (Match Home Page Chewy) <!-- id: 28 -->
+    - [x] Verify Changes <!-- id: 29 -->
+- [/] Refine Logos (Round 3) <!-- id: 30 -->
+    - [x] Google Logo: Increase Size <!-- id: 31 -->
+    - [x] Apple Logo: Fix Visibility (Try White Button) <!-- id: 32 -->
+    - [x] Verify Changes <!-- id: 33 -->
+- [/] Replace Google Logo <!-- id: 34 -->
+    - [x] Download Clean Asset <!-- id: 35 -->
+    - [x] Update Code <!-- id: 36 -->
+    - [x] Verify <!-- id: 37 -->
+- [/] Balance Logo Sizes <!-- id: 38 -->
+    - [x] Reduce Google Logo Height <!-- id: 39 -->
+    - [x] Verify Visual Match <!-- id: 40 -->
+- [/] Refactor Sign Up Flow <!-- id: 41 -->
+    - [x] Create UserProfilePage <!-- id: 42 -->
+    - [x] Modify SignUpPage (Remove Password, Add Navigation) <!-- id: 43 -->
+    - [x] Verify Flow <!-- id: 44 -->
+- [/] Refine Sign Up Layout <!-- id: 45 -->
+    - [x] Move Social Buttons below 'Already have an account?' <!-- id: 46 -->
+    - [x] Remove 'Log In' text link <!-- id: 47 -->
+    - [x] Verify Layout <!-- id: 48 -->
+- [/] Style 'Draw It' Button <!-- id: 49 -->
+    - [x] Change font to Chewy <!-- id: 50 -->
+- [/] Style 'Draw It' Button <!-- id: 49 -->
+    - [x] Change font to Chewy <!-- id: 50 -->
+    - [x] Verify <!-- id: 51 -->
+- [x] Implement SDXL Style Presets <!-- id: 52 -->
+    - [x] Update StabilityService to accept style_preset <!-- id: 53 -->
+    - [x] Map UI styles to Presets in CharacterCreationPage <!-- id: 54 -->
+    - [x] Verify Generation <!-- id: 55 -->
+- [x] Fix Upload Button <!-- id: 59 -->
+    - [x] Add macOS file access entitlements <!-- id: 60 -->
+- [x] Make Image Upload Optional <!-- id: 61 -->
+    - [x] Update `_drawIt` logic to allow null image <!-- id: 62 -->
+- [x] Improve Story Character Consistency <!-- id: 63 -->
+    - [x] Save character `description` in `CharacterCreationPage` <!-- id: 64 -->
+    - [x] Update `StoryResultView` to use `description` in prompts <!-- id: 65 -->
+    - [x] Fix compilation error in `stories_page.dart` (missing import) <!-- id: 67 -->
+    - [x] Fix Character Rename persistence (`_saveCast` missing) <!-- id: 68 -->
+    - [x] Implement `visual_description` in Gemini Prompt <!-- id: 69 -->
+    - [x] Update `StoryResultView` to use `visual_description` <!-- id: 70 -->
+    - [x] Implement `visual_description` in Gemini Prompt <!-- id: 69 -->
+    - [x] Update `StoryResultView` to use `visual_description` <!-- id: 70 -->
+    - [ ] Embed Character Descriptions in Gemini Story Generation <!-- id: 71 -->
+        - [ ] Update `StoriesPage` to pass full descriptions <!-- id: 72 -->
+    - [x] Update `GeminiService` to weave physical details into `visual_description` <!-- id: 73 -->
+    - [x] Update Cover Generation to use full descriptions <!-- id: 74 -->
+    - [x] Implement Regenerate Image Feature <!-- id: 75 -->
+    - [x] Add "Regenerate" button to `StoryResultView` <!-- id: 76 -->
+    - [x] Refine Action-Image Alignment <!-- id: 77 -->
+        - [x] Update `StoryResultView` to reduce prompt redundancy <!-- id: 78 -->
+        - [x] Tune `GeminiService` to prioritize action in visual descriptions <!-- id: 79 -->
+    - [x] Tune `GeminiService` to prioritize action in visual descriptions <!-- id: 79 -->
+    - [x] Implement Hybrid Prompting Strategy <!-- id: 80 -->
+        - [x] Reconfigure `GeminiService` to focus strictly on Action/Scene <!-- id: 81 -->
+        - [x] Update `StoryResultView` to assemble `[Character Bio] + [Action Scene]` prompt <!-- id: 82 -->
+    - [x] Implement Profile Enhancement (Global) <!-- id: 83 -->
+        - [x] Add `enhanceCharacterDescription` to `GeminiService` <!-- id: 84 -->
+        - [x] Update `StoriesPage` to enhance ALL selected cast members <!-- id: 85 -->
+        - [x] Update `GeminiService` prompt to enforce Object & Support Cast consistency <!-- id: 86 -->
+    - [x] Implement Profile Enhancement (Global) <!-- id: 83 -->
+        - [x] Add `enhanceCharacterDescription` to `GeminiService` <!-- id: 84 -->
+        - [x] Update `StoriesPage` to enhance ALL selected cast members <!-- id: 85 -->
+        - [x] Update `GeminiService` prompt to enforce Object & Support Cast consistency <!-- id: 86 -->
+    - [x] Implement Storyboard Batch Generation <!-- id: 87 -->
+        - [x] Create `generateStoryboard` helper in `StoriesPage` (Prompting logic) <!-- id: 88 -->
+        - [x] Implement Image Slicing Logic (`package:image`) <!-- id: 89 -->
+        - [x] Automate generation loop after text weaving <!-- id: 90 -->
+        - [x] Update `StoryResultView` to display pre-generated images (remove Tap-to-Weave) <!-- id: 91 -->
+    - [x] Refine Strategy: Revert to Page-by-Page with Global Seed (Fixing Grid Mismatch) <!-- id: 95 -->
+    - [ ] Verify character appearance in story pages <!-- id: 66 -->
