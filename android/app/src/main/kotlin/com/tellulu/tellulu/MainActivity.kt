@@ -1,4 +1,4 @@
-package com.example.chrono_app
+package com.tellulu.tellulu
 
 import io.flutter.embedding.android.FlutterActivity
 

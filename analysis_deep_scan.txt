@@ -1,0 +1,153 @@
+Resolving dependencies...
+Downloading packages...
+  _fe_analyzer_shared 91.0.0 (94.0.0 available)
+  analyzer 8.4.1 (10.0.2 available)
+  analyzer_buffer 0.1.11 (0.3.0 available)
+  characters 1.4.0 (1.4.1 available)
+  cross_file 0.3.5+1 (0.3.5+2 available)
+  dart_style 3.1.3 (3.1.5 available)
+  flutter_riverpod 3.1.0 (3.2.0 available)
+  image_picker_ios 0.8.13+5 (0.8.13+6 available)
+  json_annotation 4.9.0 (4.10.0 available)
+  matcher 0.12.17 (0.12.18 available)
+  material_color_utilities 0.11.1 (0.13.0 available)
+  meta 1.17.0 (1.18.1 available)
+  objective_c 9.2.4 (9.2.5 available)
+  riverpod 3.1.0 (3.2.0 available)
+  riverpod_analyzer_utils 1.0.0-dev.8 (1.0.0-dev.9 available)
+  riverpod_annotation 4.0.0 (4.0.1 available)
+  riverpod_generator 4.0.0+1 (4.0.2 available)
+  test 1.26.3 (1.29.0 available)
+  test_api 0.7.7 (0.7.9 available)
+  test_core 0.6.12 (0.6.15 available)
+Got dependencies!
+20 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing tellulu...                                            
+
+warning • 'inference_failure_on_instance_creation' is not a recognized lint rule • analysis_options.yaml:26:5 • undefined_lint
+warning • 'inference_failure_on_function_invocation' is not a recognized lint rule • analysis_options.yaml:27:5 • undefined_lint
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/common/widgets/tellulu_card.dart:34:41 • deprecated_member_use
+   info • 'Future'-returning calls in a non-'async' function • lib/features/auth/sign_up_page.dart:26:15 • discarded_futures
+warning • The type argument(s) of the constructor 'MaterialPageRoute' can't be inferred • lib/features/auth/sign_up_page.dart:28:7 • inference_failure_on_instance_creation
+   info • 'Future'-returning calls in a non-'async' function • lib/features/auth/user_profile_page.dart:44:5 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/auth/user_profile_page.dart:45:5 • discarded_futures
+   info • Don't invoke 'print' in production code • lib/features/auth/user_profile_page.dart:80:9 • avoid_print
+   info • Missing an 'await' for the 'Future' computed by this expression • lib/features/auth/user_profile_page.dart:81:31 • unawaited_futures
+   info • Don't invoke 'print' in production code • lib/features/auth/user_profile_page.dart:94:12 • avoid_print
+   info • Catch clause should use 'on' to specify the type of exception being caught • lib/features/auth/user_profile_page.dart:101:7 • avoid_catches_without_on_clauses
+   info • Don't invoke 'print' in production code • lib/features/auth/user_profile_page.dart:102:7 • avoid_print
+   info • 'Future'-returning calls in a non-'async' function • lib/features/auth/user_profile_page.dart:114:5 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/auth/user_profile_page.dart:115:18 • discarded_futures
+   info • Don't invoke 'print' in production code • lib/features/auth/user_profile_page.dart:128:5 • avoid_print
+   info • Missing an 'await' for the 'Future' computed by this expression • lib/features/auth/user_profile_page.dart:160:22 • unawaited_futures
+   info • Catch clause should use 'on' to specify the type of exception being caught • lib/features/auth/user_profile_page.dart:163:7 • avoid_catches_without_on_clauses
+   info • Don't invoke 'print' in production code • lib/features/auth/user_profile_page.dart:164:7 • avoid_print
+   info • Missing an 'await' for the 'Future' computed by this expression • lib/features/auth/user_profile_page.dart:220:20 • unawaited_futures
+   info • Catch clause should use 'on' to specify the type of exception being caught • lib/features/auth/user_profile_page.dart:222:7 • avoid_catches_without_on_clauses
+   info • Don't invoke 'print' in production code • lib/features/auth/user_profile_page.dart:223:7 • avoid_print
+   info • 'Future'-returning calls in a non-'async' function • lib/features/auth/user_profile_page.dart:229:5 • discarded_futures
+warning • The type argument(s) of the function 'showDialog' can't be inferred • lib/features/auth/user_profile_page.dart:229:5 • inference_failure_on_function_invocation
+   info • Missing an 'await' for the 'Future' computed by this expression • lib/features/auth/user_profile_page.dart:252:15 • unawaited_futures
+warning • The type argument(s) of the constructor 'MaterialPageRoute' can't be inferred • lib/features/auth/user_profile_page.dart:254:7 • inference_failure_on_instance_creation
+   info • Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check • lib/features/auth/user_profile_page.dart:338:52 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check • lib/features/auth/user_profile_page.dart:341:45 • use_build_context_synchronously
+warning • The type argument(s) of the constructor 'Future.delayed' can't be inferred • lib/features/auth/web_auth_web.dart:43:18 • inference_failure_on_instance_creation
+   info • Don't invoke 'print' in production code • lib/features/auth/web_auth_web.dart:49:9 • avoid_print
+   info • Unnecessary duplication of receiver • lib/features/auth/web_auth_web.dart:61:6 • cascade_invocations
+   info • Unnecessary duplication of receiver • lib/features/auth/web_auth_web.dart:62:6 • cascade_invocations
+   info • Unnecessary duplication of receiver • lib/features/auth/web_auth_web.dart:63:6 • cascade_invocations
+   info • Unnecessary duplication of receiver • lib/features/auth/web_auth_web.dart:64:6 • cascade_invocations
+   info • Catch clause should use 'on' to specify the type of exception being caught • lib/features/auth/web_auth_web.dart:106:5 • avoid_catches_without_on_clauses
+   info • Don't invoke 'print' in production code • lib/features/auth/web_auth_web.dart:107:5 • avoid_print
+warning • The type argument(s) of the constructor 'Future.delayed' can't be inferred • lib/features/auth/web_auth_web.dart:126:18 • inference_failure_on_instance_creation
+   info • Don't invoke 'print' in production code • lib/features/auth/web_auth_web.dart:132:8 • avoid_print
+   info • 'Future'-returning calls in a non-'async' function • lib/features/auth/web_auth_web.dart:150:65 • discarded_futures
+warning • The type of e can't be inferred; a type must be explicitly provided • lib/features/auth/web_auth_web.dart:150:77 • inference_failure_on_untyped_parameter
+   info • Don't invoke 'print' in production code • lib/features/auth/web_auth_web.dart:151:15 • avoid_print
+   info • Unnecessary duplication of receiver • lib/features/auth/web_auth_web.dart:161:6 • cascade_invocations
+   info • Unnecessary duplication of receiver • lib/features/auth/web_auth_web.dart:162:6 • cascade_invocations
+   info • Unnecessary duplication of receiver • lib/features/auth/web_auth_web.dart:163:6 • cascade_invocations
+   info • Unnecessary duplication of receiver • lib/features/auth/web_auth_web.dart:168:6 • cascade_invocations
+   info • Catch clause should use 'on' to specify the type of exception being caught • lib/features/auth/web_auth_web.dart:171:5 • avoid_catches_without_on_clauses
+   info • Don't invoke 'print' in production code • lib/features/auth/web_auth_web.dart:172:5 • avoid_print
+  error • The element type 'dynamic' can't be assigned to the map value type 'String' • lib/features/auth/web_auth_web.dart:187:18 • map_value_type_not_assignable
+  error • The element type 'dynamic' can't be assigned to the map value type 'String' • lib/features/auth/web_auth_web.dart:188:19 • map_value_type_not_assignable
+  error • The element type 'dynamic' can't be assigned to the map value type 'String' • lib/features/auth/web_auth_web.dart:189:21 • map_value_type_not_assignable
+   info • Catch clause should use 'on' to specify the type of exception being caught • lib/features/auth/web_auth_web.dart:192:5 • avoid_catches_without_on_clauses
+   info • Don't invoke 'print' in production code • lib/features/auth/web_auth_web.dart:193:5 • avoid_print
+   info • 'Future'-returning calls in a non-'async' function • lib/features/create/character_creation_page.dart:61:5 • discarded_futures
+warning • The value of the field '_generatedImageBytes' isn't used • lib/features/create/character_creation_page.dart:66:14 • unused_field
+  error • A value of type 'dynamic' can't be assigned to a variable of type 'List<dynamic>' • lib/features/create/character_creation_page.dart:95:43 • invalid_assignment
+  error • The argument type 'dynamic' can't be assigned to the parameter type 'Map<dynamic, dynamic>'.  • lib/features/create/character_creation_page.dart:98:77 • argument_type_not_assignable
+  error • The argument type 'dynamic' can't be assigned to the parameter type 'String'.  • lib/features/create/character_creation_page.dart:101:53 • argument_type_not_assignable
+   info • Don't invoke 'print' in production code • lib/features/create/character_creation_page.dart:107:9 • avoid_print
+  error • The argument type 'dynamic' can't be assigned to the parameter type 'List<int>'.  • lib/features/create/character_creation_page.dart:129:48 • argument_type_not_assignable
+   info • Don't invoke 'print' in production code • lib/features/create/character_creation_page.dart:178:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/create/character_creation_page.dart:180:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/create/character_creation_page.dart:181:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/create/character_creation_page.dart:182:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/create/character_creation_page.dart:199:9 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/create/character_creation_page.dart:232:11 • avoid_print
+   info • 'Future'-returning calls in a non-'async' function • lib/features/create/character_creation_page.dart:246:11 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/create/character_creation_page.dart:388:23 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/create/character_creation_page.dart:408:23 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/create/character_creation_page.dart:671:5 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/create/character_creation_page.dart:710:5 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/create/character_creation_page.dart:735:15 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/create/character_creation_page.dart:746:5 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/create/character_creation_page.dart:758:15 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/create/character_creation_page.dart:774:22 • discarded_futures
+warning • The type argument(s) of the constructor 'MaterialPageRoute' can't be inferred • lib/features/create/character_creation_page.dart:776:15 • inference_failure_on_instance_creation
+   info • 'Future'-returning calls in a non-'async' function • lib/features/create/character_creation_page.dart:782:23 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/home/home_page.dart:105:33 • discarded_futures
+warning • The type argument(s) of the constructor 'MaterialPageRoute' can't be inferred • lib/features/home/home_page.dart:107:25 • inference_failure_on_instance_creation
+   info • 'Future'-returning calls in a non-'async' function • lib/features/settings/settings_page.dart:30:5 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/settings/settings_page.dart:37:7 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/settings/settings_page.dart:147:32 • discarded_futures
+warning • The type argument(s) of the constructor 'MaterialPageRoute' can't be inferred • lib/features/settings/settings_page.dart:149:24 • inference_failure_on_instance_creation
+   info • 'Future'-returning calls in a non-'async' function • lib/features/settings/settings_page.dart:169:58 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/settings/settings_page.dart:210:65 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/settings/settings_page.dart:238:69 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/settings/settings_page.dart:273:71 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/settings/settings_page.dart:306:64 • discarded_futures
+warning • The return type of ' Function(Map<String, dynamic>)' can't be inferred • lib/features/stories/new_story_view.dart:12:9 • inference_failure_on_function_return_type
+   info • Unnecessary use of multiple underscores • lib/features/stories/new_story_view.dart:110:43 • unnecessary_underscores
+   info • Don't invoke 'print' in production code • lib/features/stories/stories_page.dart:70:7 • avoid_print
+   info • 'Future'-returning calls in a non-'async' function • lib/features/stories/stories_page.dart:76:5 • discarded_futures
+   info • Missing documentation explaining why the diagnostic is ignored • lib/features/stories/stories_page.dart:80:5 • document_ignores
+   info • Missing documentation explaining why the diagnostic is ignored • lib/features/stories/stories_page.dart:108:9 • document_ignores
+   info • Don't use 'BuildContext's across async gaps • lib/features/stories/stories_page.dart:111:30 • use_build_context_synchronously
+   info • Missing documentation explaining why the diagnostic is ignored • lib/features/stories/stories_page.dart:116:7 • document_ignores
+   info • Missing documentation explaining why the diagnostic is ignored • lib/features/stories/stories_page.dart:118:7 • document_ignores
+   info • Missing documentation explaining why the diagnostic is ignored • lib/features/stories/stories_page.dart:127:7 • document_ignores
+   info • Missing documentation explaining why the diagnostic is ignored • lib/features/stories/stories_page.dart:150:13 • document_ignores
+   info • Missing documentation explaining why the diagnostic is ignored • lib/features/stories/stories_page.dart:164:13 • document_ignores
+   info • 'Future'-returning calls in a non-'async' function • lib/features/stories/stories_page.dart:179:7 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/stories/stories_page.dart:196:15 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/stories/stories_page.dart:210:7 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/stories/stories_page.dart:222:15 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/stories/stories_page.dart:328:27 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/stories/stories_page.dart:393:15 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/stories/stories_page.dart:656:23 • discarded_futures
+   info • 'Future'-returning calls in a non-'async' function • lib/features/stories/stories_page.dart:663:23 • discarded_futures
+   info • Missing a newline at the end of the file • lib/features/stories/stories_page.dart:697:2 • eol_at_end_of_file
+   info • Don't invoke 'print' in production code • lib/features/stories/story_result_view.dart:243:10 • avoid_print
+   info • Don't invoke 'print' in production code • lib/features/stories/story_result_view.dart:252:14 • avoid_print
+   info • 'Future'-returning calls in a non-'async' function • lib/features/stories/story_result_view.dart:304:7 • discarded_futures
+   info • Missing documentation explaining why the diagnostic is ignored • lib/features/stories/story_weaver.dart:84:11 • document_ignores
+   info • Missing documentation explaining why the diagnostic is ignored • lib/features/stories/story_weaver.dart:97:12 • document_ignores
+   info • Missing documentation explaining why the diagnostic is ignored • lib/features/stories/story_weaver.dart:134:10 • document_ignores
+   info • Catch clause should use 'on' to specify the type of exception being caught • lib/services/gemini_service.dart:195:13 • avoid_catches_without_on_clauses
+   info • Missing documentation explaining why the diagnostic is ignored • test/debug_dream_up.dart:1:1 • document_ignores
+  error • The method 'testLoad' isn't defined for the type 'DotEnv' • test/debug_dream_up.dart:13:10 • undefined_method
+   info • Missing documentation explaining why the diagnostic is ignored • test/features/create/character_creation_page_test.dart:1:1 • document_ignores
+   info • To-do comment doesn't follow the Flutter style • test/features/create/character_creation_page_test.dart:79:5 • flutter_style_todos
+   info • Missing documentation explaining why the diagnostic is ignored • test/stability_api_test.dart:1:1 • document_ignores
+   info • Catch clause should use 'on' to specify the type of exception being caught • test/stability_api_test.dart:49:7 • avoid_catches_without_on_clauses
+   info • Don't invoke 'print' in production code • test/validate_all_models.dart:13:5 • avoid_print
+   info • Don't invoke 'print' in production code • test/validate_all_models.dart:41:3 • avoid_print
+   info • Don't invoke 'print' in production code • test/validate_all_models.dart:44:5 • avoid_print
+   info • Don't invoke 'print' in production code • test/validate_all_models.dart:47:3 • avoid_print
+   info • Don't invoke 'print' in production code • test/validate_all_models.dart:50:5 • avoid_print
+

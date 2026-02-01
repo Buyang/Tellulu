@@ -1,11 +1,11 @@
 {
-    "name": "chrono_app",
-    "short_name": "chrono_app",
+    "name": "Tellulu",
+    "short_name": "Tellulu",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#hex_code",
+    "theme_color": "#hex_code",
+    "description": "Tellulu - A storytelling app.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

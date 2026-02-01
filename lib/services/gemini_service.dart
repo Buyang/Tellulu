@@ -1,36 +1,38 @@
 import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class GeminiService {
+
+  GeminiService(this.apiKey, {http.Client? client}) : _client = client ?? http.Client();
   final String apiKey;
   static const String _baseUrlv1beta = 'https://generativelanguage.googleapis.com/v1beta/models/';
 
-  GeminiService(this.apiKey);
+  final http.Client _client;
+
+  // Constants for Model Versions
+  static const String _defaultModel = GeminiModels.flash20Exp;
 
   Future<String?> generateCharacterDescription({
     required String prompt,
-    String model = 'gemini-1.5-flash', // Retain default signature
+    String model = _defaultModel,
   }) async {
-    // FIX: Map 'flash' or '2.5' or any failing model to the robust 'gemini-2.0-flash-exp'
-    // User requested "2.5" (likely referring to the Dec 2024 2.0 Flash Exp)
-    final safeModel = (model.contains('flash') || model.contains('2.5') || model.contains('pro')) 
-        ? 'gemini-2.0-flash-exp' 
-        : model;
+    final safeModel = _resolveModel(model);
     
     // Legacy method - keeping for Character Creation "Dream Up" feature
     // ... logic same as before ...
     try {
-      // CRITICAL FIX: Use safeModel here!
       final url = Uri.parse('$_baseUrlv1beta$safeModel:generateContent?key=$apiKey');
-      final response = await http.post(
+      final response = await _client.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          "contents": [
+          'contents': [
             {
-              "parts": [
+              'parts': [
                 {
-                  "text": prompt
+                  'text': prompt
                 }
               ]
             }
@@ -41,19 +43,49 @@ class GeminiService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['candidates'] != null && 
-            data['candidates'].isNotEmpty &&
-            data['candidates'][0]['content'] != null &&
+            (data['candidates'] as List).isNotEmpty &&
+            (data['candidates'] as List)[0]['content'] != null &&
             data['candidates'][0]['content']['parts'] != null &&
-            data['candidates'][0]['content']['parts'].isNotEmpty) {
-          return data['candidates'][0]['content']['parts'][0]['text'];
+            (data['candidates'][0]['content']['parts'] as List).isNotEmpty) {
+          return data['candidates'][0]['content']['parts'][0]['text'] as String;
         }
       } else {
-        print('Gemini API Error: ${response.statusCode} - ${response.body}');
+        debugPrint('Gemini API Error: ${response.statusCode} - ${response.body}');
       }
-    } catch (e) {
-      print('Gemini Service Exception: $e');
+    } on Object catch (e) {
+      debugPrint('Gemini Service Exception: $e');
     }
     return null;
+  }
+
+  /// Verifies if the selected model is reachable and functioning.
+  /// Sends a minimal token request.
+  Future<bool> verifyModelHealth(String model) async {
+    final safeModel = _resolveModel(model);
+    try {
+      final url = Uri.parse('$_baseUrlv1beta$safeModel:generateContent?key=$apiKey');
+      final response = await _client.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'contents': [
+            {
+              'parts': [
+                {'text': 'Ping'}
+              ]
+            }
+          ],
+          'generationConfig': {
+             'maxOutputTokens': 1,
+          }
+        }),
+      );
+      // We consider it healthy if we get a 200 OK.
+      return response.statusCode == 200;
+    } on Object catch (e) {
+      debugPrint('Gemini Health Check Failed: $e');
+      return false;
+    }
   }
 
   Future<String> enhanceCharacterDescription(String name, String rawDescription) async {
@@ -89,8 +121,9 @@ class GeminiService {
     required String vibe,
     required String readingLevel,
     required String specialTouch,
-    String model = 'gemini-1.5-flash',
+    String model = _defaultModel,
   }) async {
+    final safeModel = _resolveModel(model);
     try {
       final castDescription = castDetails.map((c) => "${c['name']} (${c['description']})").join(', ');
 
@@ -128,15 +161,15 @@ class GeminiService {
       Do not include markdown formatting (like ```json) in the response, just the raw JSON string if possible, or I will clean it.
       """;
 
-      final url = Uri.parse('$_baseUrlv1beta$model:generateContent?key=$apiKey');
-      final response = await http.post(
+      final url = Uri.parse('$_baseUrlv1beta$safeModel:generateContent?key=$apiKey');
+      final response = await _client.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          "contents": [
+          'contents': [
             {
-              "parts": [
-                {"text": prompt}
+              'parts': [
+                {'text': prompt}
               ]
             }
           ]
@@ -144,34 +177,51 @@ class GeminiService {
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['candidates'] != null && 
-            data['candidates'].isNotEmpty &&
-            data['candidates'][0]['content'] != null &&
-            data['candidates'][0]['content']['parts'] != null &&
-            data['candidates'][0]['content']['parts'].isNotEmpty) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final candidates = data['candidates'] as List<dynamic>?;
+        
+        if (candidates != null && 
+            candidates.isNotEmpty &&
+            candidates[0]['content'] != null) {
           
-          String text = data['candidates'][0]['content']['parts'][0]['text'];
-          // Basic cleanup if Gemini returns markdown code blocks
-          text = text.replaceAll('```json', '').replaceAll('```', '').trim();
-          
-          try {
-            return jsonDecode(text) as Map<String, dynamic>;
+          final parts = candidates[0]['content']['parts'] as List<dynamic>?;
+          if (parts != null && parts.isNotEmpty) {
+             String text = parts[0]['text'] as String;
+             // Basic cleanup if Gemini returns markdown code blocks
+             text = text.replaceAll('```json', '').replaceAll('```', '').trim();
+             
+             try {
+               return jsonDecode(text) as Map<String, dynamic>;
           } catch (e) {
-            print("Error parsing JSON story: $e");
+            debugPrint('Error parsing JSON story: $e');
             // Fallback: return raw text as a single page if JSON parse fails
              return {
-              "title": "A $vibe Adventure",
-              "pages": [text]
+              'title': 'A $vibe Adventure',
+              'pages': [text]
             };
           }
         }
-      } else {
-        print('Gemini API Error: ${response.statusCode} - ${response.body}');
       }
-    } catch (e) {
-      print('Gemini Service Exception: $e');
+    } else {
+        debugPrint('Gemini API Error: ${response.statusCode} - ${response.body}');
+      }
+    } on Object catch (e) {
+      debugPrint('Gemini Service Exception: $e');
     }
     return null;
   }
+
+  /// Resolves user-friendly model aliases.
+  String _resolveModel(String model) {
+    if (model == 'gemini-2.0-flash') return model;
+    
+    // Force migration from older/expired models
+    return 'gemini-2.0-flash';
+  }
+}
+
+/// Constants for Google Gemini Model versions.
+class GeminiModels {
+  static const String flash15 = 'gemini-1.5-flash';
+  static const String flash20Exp = 'gemini-2.0-flash-exp'; 
 }

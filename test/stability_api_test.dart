@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -10,7 +11,7 @@ void main() {
   test('Stability API Connectivity', () async {
     print('Testing Stability API with model: $modelId');
     
-    final url = '$baseUrl/$modelId/text-to-image';
+    const url = '$baseUrl/$modelId/text-to-image';
     
     try {
       final response = await http.post(

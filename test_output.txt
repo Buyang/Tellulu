@@ -1,0 +1,35 @@
+00:00 +0: loading /Users/buyang/.gemini/antigravity/playground/tellulu/tellulu/test/features/create/character_creation_page_test.dart                                                                  00:01 +0: loading /Users/buyang/.gemini/antigravity/playground/tellulu/tellulu/test/features/create/character_creation_page_test.dart                                                                  00:02 +0: loading /Users/buyang/.gemini/antigravity/playground/tellulu/tellulu/test/features/create/character_creation_page_test.dart                                                                  00:02 +0: SDXL Style Preset Selection Verification                                                                                                                                                     00:03 +0: SDXL Style Preset Selection Verification                                                                                                                                                     00:04 +0: SDXL Style Preset Selection Verification                                                                                                                                                     00:04 +0: SDXL Style Preset Selection Verification                                                                                                                                                     
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following StateError was thrown running a test:
+Bad state: Too many elements
+
+When the exception was thrown, this was the stack:
+#0      Iterable.single (dart:core/iterable.dart:696:24)
+#1      WidgetController.widget (package:flutter_test/src/controller.dart:808:30)
+#2      WidgetController.scrollUntilVisible.<anonymous closure> (package:flutter_test/src/controller.dart:2345:15)
+#5      TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#6      WidgetController.scrollUntilVisible (package:flutter_test/src/controller.dart:2343:27)
+#7      main.<anonymous closure> (file:///Users/buyang/.gemini/antigravity/playground/tellulu/tellulu/test/features/create/character_creation_page_test.dart:101:18)
+<asynchronous suspension>
+#8      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#9      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1059:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 3 frames from dart:async and package:stack_trace)
+
+The test description was:
+  SDXL Style Preset Selection Verification
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:04 +0 -1: SDXL Style Preset Selection Verification [E]                                                                                                                                              
+  Test failed. See exception logs above.
+  The test description was: SDXL Style Preset Selection Verification
+  
+Warning: At least one test in this suite creates an HttpClient. When running a test suite that uses
+TestWidgetsFlutterBinding, all HTTP requests will return status code 400, and no network request
+will actually be made. Any test expecting a real network connection and status code will fail.
+To test code that needs an HttpClient, provide your own HttpClient implementation to the code under
+test, so that your test can consistently provide a testable response to the code under test.
+
+To run this test again: /Users/buyang/flutter/bin/cache/dart-sdk/bin/dart test /Users/buyang/.gemini/antigravity/playground/tellulu/tellulu/test/features/create/character_creation_page_test.dart -p vm --plain-name 'SDXL Style Preset Selection Verification'
+00:04 +0 -1: Some tests failed.                                                                                                                                                                        

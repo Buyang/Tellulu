@@ -1,20 +1,17 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../services/stability_service.dart';
-import '../../common/widgets/tellulu_card.dart';
+import 'package:tellulu/services/stability_service.dart';
 
-class StoryResultView extends StatefulWidget {
-  final Map<String, dynamic> story;
-  final VoidCallback onBack;
-  final Function(Map<String, dynamic>) onSave; // Callback to save changes to parent list
+class StoryResultView extends StatefulWidget { // Callback to save changes to parent list
 
   const StoryResultView({
-    super.key,
-    required this.story,
-    required this.onBack,
-    required this.onSave,
+    required this.story, required this.onBack, required this.onSave, super.key,
   });
+  final Map<String, dynamic> story;
+  final VoidCallback onBack;
+  final void Function(Map<String, dynamic>) onSave;
 
   @override
   State<StoryResultView> createState() => _StoryResultViewState();
@@ -33,7 +30,7 @@ class _StoryResultViewState extends State<StoryResultView> {
     _stabilityService = StabilityService('sk-HRE8NYqwregvjykkelrM2Cv7kvgoJziUdcafULRoeYjEjCda');
     
     // Initialize pages, handling potential legacy format
-    var rawPages = _storyData['pages'] as List<dynamic>? ?? [];
+    final rawPages = _storyData['pages'] as List<dynamic>? ?? [];
     _pages = rawPages.map((p) {
       if (p is String) {
         // Convert legacy string to new object format
@@ -42,7 +39,7 @@ class _StoryResultViewState extends State<StoryResultView> {
           'visual_description': p, // Fallback for legacy string pages
           'image': null,
           'style': {
-             'color': Colors.black87.value,
+             'color': Colors.black87.toARGB32(),
              'fontSize': 18.0,
              'fontFamily': 'Quicksand'
           }
@@ -59,7 +56,7 @@ class _StoryResultViewState extends State<StoryResultView> {
 
   @override
   Widget build(BuildContext context) {
-    final title = _storyData['title'] ?? 'My Story';
+    final title = (_storyData['title'] as String?) ?? 'My Story';
 
     return Column(
       children: [
@@ -72,6 +69,7 @@ class _StoryResultViewState extends State<StoryResultView> {
                 title,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.chewy(
+                   textStyle: Theme.of(context).textTheme.titleLarge,
                   fontSize: 24,
                   color: const Color(0xFF9FA0CE),
                 ),
@@ -97,9 +95,9 @@ class _StoryResultViewState extends State<StoryResultView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _buildActionChip(Icons.share, "Share"),
-            _buildActionChip(Icons.download, "Download"),
-            _buildActionChip(Icons.print, "Print"),
+            _buildActionChip(Icons.share, 'Share'),
+            _buildActionChip(Icons.download, 'Download'),
+            _buildActionChip(Icons.print, 'Print'),
           ],
         ),
       ],
@@ -112,10 +110,26 @@ class _StoryResultViewState extends State<StoryResultView> {
       final imageBase64 = pageData['image'] as String?;
       final styleData = pageData['style'] as Map<String, dynamic>? ?? {};
       
+      final savedColorValue = styleData['color'];
+      Color displayColor;
+
+      // Logic: If saved color is explicitly null, use Theme.
+      // If saved color is "Black", but we are in Dark Mode, force White (unless explicitly customized to black? For now assume adaptive).
+      if (savedColorValue == null) {
+          displayColor = Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black87;
+      } else {
+         displayColor = Color((savedColorValue as num).toInt());
+         // Auto-adapt legacy black text to white in dark mode if it matches standard black
+         final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+         if (isDarkMode && displayColor.toARGB32() == Colors.black87.toARGB32()) {
+            displayColor = Colors.white; 
+         }
+      }
+
       final style = TextStyle(
-         color: Color(styleData['color'] ?? Colors.black87.value),
+         color: displayColor,
          fontSize: (styleData['fontSize'] as num?)?.toDouble() ?? 18.0,
-         fontFamily: styleData['fontFamily'] ?? 'Quicksand',
+         fontFamily: (styleData['fontFamily'] as String?) ?? 'Quicksand',
          height: 1.5,
       );
 
@@ -147,16 +161,16 @@ class _StoryResultViewState extends State<StoryResultView> {
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                               Icon(Icons.brush, size: 48, color: const Color(0xFF9FA0CE)),
+                               const Icon(Icons.brush, size: 48, color: Color(0xFF9FA0CE)),
                                const SizedBox(height: 8),
-                               Text("Tap to Weave Illustration", style: GoogleFonts.quicksand(color: Colors.black54, fontWeight: FontWeight.bold))
+                               Text('Tap to Weave Illustration', style: GoogleFonts.quicksand(color: Colors.black54, fontWeight: FontWeight.bold))
                             ],
                         ),
                     )
                   : Stack(
                       children: [
                         Positioned.fill(child: _generatingPageIndex == index 
-                            ? Container(color: Colors.white54, child: const Center(child: CircularProgressIndicator()))
+                            ? const ColoredBox(color: Colors.white54, child: Center(child: CircularProgressIndicator()))
                             : const SizedBox.shrink()
                         ),
                         if (_generatingPageIndex != index) // Only show refresh if not currently loading
@@ -168,7 +182,7 @@ class _StoryResultViewState extends State<StoryResultView> {
                             child: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.8),
+                                color: Colors.white.withValues(alpha: 0.8),
                                 shape: BoxShape.circle,
                                 boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
                               ),
@@ -185,7 +199,7 @@ class _StoryResultViewState extends State<StoryResultView> {
             GestureDetector(
               onTap: () => _showEditDialog(index, text, styleData),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Text(
                   text,
                   style: GoogleFonts.getFont(style.fontFamily!, textStyle: style),
@@ -194,12 +208,12 @@ class _StoryResultViewState extends State<StoryResultView> {
             ),
             const SizedBox(height: 8),
             Text( // Hint
-               "Tap text to edit style", 
+               'Tap text to edit style', 
                style: GoogleFonts.quicksand(fontSize: 10, color: Colors.grey[400])
             ),
             const SizedBox(height: 16),
             Text(
-              "${index + 1} of ${_pages.length}",
+              '${index + 1} of ${_pages.length}',
               style: GoogleFonts.quicksand(color: Colors.black38),
             ),
           ],
@@ -212,7 +226,7 @@ class _StoryResultViewState extends State<StoryResultView> {
   // ... (Update build method below to use this) ...
 
   // Track regen attempts to vary the seed deterministically
-  Map<int, int> _regenCounts = {};
+  final Map<int, int> _regenCounts = {};
 
   Future<void> _handleImageTap(int index, {bool forceRegenerate = false}) async {
       final pageData = _pages[index] as Map<String, dynamic>;
@@ -226,16 +240,16 @@ class _StoryResultViewState extends State<StoryResultView> {
          final sceneDescription = pageData['visual_description'] ?? pageData['text'];
          
          final prompt = "Children's storybook illustration. $sceneDescription. Style: Watercolor, colorful, cute, highly detailed.";
-         print("DEBUG: REGEN V2 - Page $index Prompt: $prompt");
+         print('DEBUG: REGEN V2 - Page $index Prompt: $prompt');
          
          // Seed Logic:
          // 1. Get the original "Good Seed" that made the rest of the book consistent.
          // 2. If generating for the first time (null image), use it as is.
          // 3. If regenerating (user clicked retry), shift it slightly so we don't get the exacting same pixels, 
          //    but stay in the same "Math Neighborhood" (if that were a thing, but mostly we just want a controlled random).
-         int baseSeed = _storyData['seed'] ?? 0;
+         final int baseSeed = (_storyData['seed'] as int?) ?? 0;
          if (baseSeed == 0) {
-             print("DEBUG: No base seed found, using random.");
+             print('DEBUG: No base seed found, using random.');
          }
 
          int currentRegenCount = _regenCounts[index] ?? 0;
@@ -255,9 +269,8 @@ class _StoryResultViewState extends State<StoryResultView> {
 
          final imageBase64 = await _stabilityService.generateImage(
             prompt: prompt,
-            stylePreset: "digital-art", 
-            modelId: "stable-diffusion-xl-1024-v1-0", 
-            imageStrength: 0.35,
+            stylePreset: 'digital-art', 
+            modelId: 'stable-diffusion-xl-1024-v1-0',
             seed: effectiveSeed,
          );
          
@@ -267,21 +280,28 @@ class _StoryResultViewState extends State<StoryResultView> {
             });
             _saveChanges();
          }
-      } catch (e) {
-         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to weave illustration: $e")));
+          } on Object catch (e) {
+             if (mounted) {
+               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to weave illustration: $e')));
+             }
       } finally {
          if (mounted) setState(() => _generatingPageIndex = null);
       }
   }
 
   void _showEditDialog(int index, String currentText, Map<String, dynamic> currentStyle) {
-      TextEditingController textController = TextEditingController(text: currentText);
+      final TextEditingController textController = TextEditingController(text: currentText);
       double fontSize = (currentStyle['fontSize'] as num?)?.toDouble() ?? 18.0;
-      Color fontColor = Color(currentStyle['color'] ?? Colors.black87.value);
+      
+      // Resolve initial color for dialog
+      Color fontColor = Color((currentStyle['color'] as int?) ?? Colors.black87.toARGB32());
+      if (Theme.of(context).brightness == Brightness.dark && fontColor.toARGB32() == Colors.black87.toARGB32()) {
+         fontColor = Colors.white;
+      }
       // Simple font toggle for MVP
-      String fontFamily = currentStyle['fontFamily'] ?? 'Quicksand'; 
+       final String fontFamily = (currentStyle['fontFamily'] as String?) ?? 'Quicksand'; 
 
-      showModalBottomSheet(
+      showModalBottomSheet<void>(
          context: context,
          isScrollControlled: true,
          builder: (context) => StatefulBuilder(
@@ -291,17 +311,17 @@ class _StoryResultViewState extends State<StoryResultView> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                     Text("Edit Page", style: GoogleFonts.chewy(fontSize: 24)),
+                     Text('Edit Page', style: GoogleFonts.chewy(fontSize: 24)),
                      const SizedBox(height: 16),
                      TextField(
                         controller: textController,
                         maxLines: 4,
-                        decoration: const InputDecoration(border: OutlineInputBorder(), labelText: "Content"),
+                        decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Content'),
                      ),
                      const SizedBox(height: 16),
                      Row(
                         children: [
-                           Text("Size: ${fontSize.toInt()}", style: GoogleFonts.quicksand()),
+                           Text('Size: ${fontSize.toInt()}', style: GoogleFonts.quicksand()),
                            Expanded(
                               child: Slider(
                                  value: fontSize, 
@@ -330,7 +350,7 @@ class _StoryResultViewState extends State<StoryResultView> {
                               setState(() {
                                  _pages[index]['text'] = textController.text;
                                  _pages[index]['style'] = {
-                                    'color': fontColor.value,
+                                    'color': fontColor.toARGB32(),
                                     'fontSize': fontSize,
                                     'fontFamily': fontFamily
                                  };
@@ -338,7 +358,7 @@ class _StoryResultViewState extends State<StoryResultView> {
                               _saveChanges();
                               Navigator.pop(context);
                            },
-                           child: Text("Save Changes", style: GoogleFonts.quicksand(fontWeight: FontWeight.bold, color: Colors.black87)),
+                           child: Text('Save Changes', style: GoogleFonts.quicksand(fontWeight: FontWeight.bold, color: Colors.black87)),
                         ),
                      ),
                      const SizedBox(height: 24),
@@ -349,9 +369,9 @@ class _StoryResultViewState extends State<StoryResultView> {
       );
   }
 
-  Widget _colorDot(Color color, Color selectedColor, Function(Color) onTap) {
-     final isSelected = color.value == selectedColor.value;
-     return GestureDetector(
+   Widget _colorDot(Color color, Color selectedColor, void Function(Color) onTap) {
+      final isSelected = color.toARGB32() == selectedColor.toARGB32();
+      return GestureDetector(
         onTap: () => onTap(color),
         child: Container(
            width: 30, height: 30,
@@ -366,10 +386,18 @@ class _StoryResultViewState extends State<StoryResultView> {
    }
    
    Widget _buildActionChip(IconData icon, String label) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE0E7FF);
+    final contentColor = isDark ? Colors.white : Colors.black87;
+
     return Chip(
-      avatar: Icon(icon, size: 18),
-      label: Text(label),
-      backgroundColor: const Color(0xFFE0E7FF),
+      avatar: Icon(icon, size: 18, color: contentColor),
+      label: Text(
+        label,
+        style: TextStyle(color: contentColor, fontWeight: FontWeight.bold),
+      ),
+      backgroundColor: bgColor,
+      side: isDark ? const BorderSide(color: Colors.white24) : BorderSide.none,
     );
   }
 }

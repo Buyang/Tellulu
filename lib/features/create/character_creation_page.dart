@@ -1,55 +1,70 @@
+import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../common/widgets/tellulu_card.dart';
-import '../../services/gemini_service.dart';
-import '../../services/stability_service.dart';
+import 'package:tellulu/common/widgets/tellulu_card.dart';
+import 'package:tellulu/features/home/home_page.dart';
+import 'package:tellulu/features/settings/settings_page.dart';
+import 'package:tellulu/features/stories/stories_page.dart';
+import 'package:tellulu/providers/service_providers.dart';
+import 'package:tellulu/providers/settings_providers.dart';
+import 'package:tellulu/services/gemini_service.dart';
+import 'package:tellulu/services/stability_service.dart';
 
-import '../settings/settings_page.dart';
-import '../home/home_page.dart';
-import '../stories/stories_page.dart';
+// ... imports
 
-class CharacterCreationPage extends StatefulWidget {
-  final ValueNotifier<ThemeMode> themeNotifier;
-  final ValueNotifier<String> geminiModelNotifier;
-  final ValueNotifier<String> stabilityModelNotifier;
-  final ValueNotifier<double> creativityNotifier;
+class CharacterCreationPage extends ConsumerStatefulWidget {
 
   const CharacterCreationPage({
-    super.key, 
-    required this.themeNotifier,
-    required this.geminiModelNotifier,
-    required this.stabilityModelNotifier,
-    required this.creativityNotifier,
+    super.key,
+    this.geminiService,
+    this.stabilityService,
+    this.imagePicker,
   });
 
+  final GeminiService? geminiService;
+  final StabilityService? stabilityService;
+  final ImagePicker? imagePicker;
+
   @override
-  State<CharacterCreationPage> createState() => _CharacterCreationPageState();
+  ConsumerState<CharacterCreationPage> createState() => _CharacterCreationPageState();
 }
 
-class _CharacterCreationPageState extends State<CharacterCreationPage> {
-  final _geminiService = GeminiService('AIzaSyCZlW80K2vriEK_i_ry07zlle1q_mk-sJ4');
-  // NOTE: In production, secure this key!
-  final _stabilityService = StabilityService('sk-HRE8NYqwregvjykkelrM2Cv7kvgoJziUdcafULRoeYjEjCda'); 
+class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
+  late final GeminiService _geminiService;
+  late final StabilityService _stabilityService;
+  
+  // Keys are now handled via Service Providers and .env 
   
   final _descriptionController = TextEditingController();
-  final _picker = ImagePicker();
+  late final ImagePicker _picker;
   
+
   @override
   void initState() {
     super.initState();
+    // In ConsumerStatefulWidget, we can access ref in initState but read/watch is nuanced.
+    // For services (stateless/singletons), reading the provider is fine.
+    // For providers created with riverpod_annotation they are auto-disposed or keepAlive.
+    
+    // Fallback to provider if not injected
+    _geminiService = widget.geminiService ?? ref.read(geminiServiceProvider);
+    _stabilityService = widget.stabilityService ?? ref.read(stabilityServiceProvider);
+    
+    _picker = widget.imagePicker ?? ImagePicker();
     _selectedStyleKey = _stylePresets.keys.first;
-    _loadCast();
+    unawaited(_loadCast());
   }
 
   // State
+
   Uint8List? _selectedImageBytes;
-  Uint8List? _generatedImageBytes;
   // No local state for models anymore
   bool _isDreaming = false;
   bool _isDrawing = false;
@@ -81,15 +96,15 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
         final List<dynamic> decodedList = jsonDecode(castJson);
         setState(() {
           _cast = decodedList.map((item) {
-            Map<String, dynamic> castItem = Map<String, dynamic>.from(item);
+            final Map<String, dynamic> castItem = Map<String, dynamic>.from(item as Map);
             // Decode Base64 image back to bytes if present
             if (castItem['imageBase64'] != null) {
-              castItem['imageBytes'] = base64Decode(castItem['imageBase64']);
+              castItem['imageBytes'] = base64Decode(castItem['imageBase64'] as String);
             }
             return castItem;
           }).toList();
         });
-      } catch (e) {
+      } on Object catch (e) {
         print('Error loading cast: $e');
       }
     } else {
@@ -112,7 +127,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
     final jsonList = _cast.map((item) {
       final Map<String, dynamic> jsonItem = Map<String, dynamic>.from(item);
       if (jsonItem['imageBytes'] != null) {
-        jsonItem['imageBase64'] = base64Encode(jsonItem['imageBytes']);
+        jsonItem['imageBase64'] = base64Encode(jsonItem['imageBytes'] as List<int>);
         jsonItem.remove('imageBytes'); // Remove bytes from JSON object
       }
       return jsonItem;
@@ -127,16 +142,16 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
       final bytes = await image.readAsBytes();
       setState(() {
         _selectedImageBytes = bytes;
-        _generatedImageBytes = null; // Reset generated image on new pick
       });
     }
   }
 
   Future<void> _dreamUpDescription() async {
     setState(() => _isDreaming = true);
+    final model = ref.read(geminiModelProvider).value ?? 'gemini-2.0-flash-exp';
     final description = await _geminiService.generateCharacterDescription(
       prompt: "Create a creative, playful character description for a children's story hero. The character is a $_selectedStyleKey. Keep it under 1000 characters.",
-      model: widget.geminiModelNotifier.value,
+      model: model,
     );
     if (mounted) {
       if (description != null) {
@@ -180,18 +195,22 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
         if (resizedBytes != null) {
           finalImageBytes = resizedBytes;
         }
-      } catch (e) {
+      } on Object catch (e) {
         print('Error resizing image: $e');
         // Proceed with original, might fail but worth a try
       }
     }
 
+    // Use providers
+    final modelId = ref.read(stabilityModelProvider).value ?? 'stable-diffusion-xl-1024-v1-0';
+    final imageStrength = ref.read(creativityProvider).value ?? 0.35;
+
     final base64Image = await _stabilityService.generateImage(
       initImageBytes: finalImageBytes,
       prompt: _descriptionController.text,
-      stylePreset: _stylePresets[_selectedStyleKey], // Pass mapped preset
-      modelId: widget.stabilityModelNotifier.value,
-      imageStrength: widget.creativityNotifier.value, // Pass user defined strength
+      stylePreset: _stylePresets[_selectedStyleKey],
+      modelId: modelId,
+      imageStrength: imageStrength,
     );
 
     if (mounted) {
@@ -207,13 +226,13 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
             final resized = img.copyResize(rawImage, width: 512); 
             // Encode as JPEG with quality 70
             optimizedBytes = Uint8List.fromList(img.encodeJpg(resized, quality: 70));
+            optimizedBytes = Uint8List.fromList(img.encodeJpg(resized, quality: 70));
           }
-        } catch (e) {
+        } on Object catch (e) {
           print('Error optimizing image: $e');
         }
 
         setState(() {
-          _generatedImageBytes = bytes; // Show high-res immediately
           _isDrawing = false;
           // Add to cast automatically for fun
           _cast.insert(0, {
@@ -244,111 +263,121 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: TelluluCard(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Header
-              _buildHeader(context),
-              const SizedBox(height: 16),
-              
-              // Title & Subtitle
-              Text(
-                'Who is the hero today?',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.quicksand(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-              Text(
-                'Bring a new friend...',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.chewy(
-                  fontSize: 18,
-                  color: const Color(0xFF9FA0CE),
-                ),
-              ),
-              const SizedBox(height: 16),
-  
-              // Uploaded Image Preview (If exists)
-              if (_selectedImageBytes != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: Stack(
-                     alignment: Alignment.topRight,
-                     children: [
-                       ClipRRect(
-                         borderRadius: BorderRadius.circular(16),
-                         child: Image.memory(_selectedImageBytes!, height: 150, fit: BoxFit.cover),
-                       ),
-                       IconButton(
-                         icon: const Icon(Icons.close, color: Colors.red),
-                         onPressed: () => setState(() => _selectedImageBytes = null),
-                       ),
-                     ],
-                  ),
-                ),
-
-              // Removed Gemini Model Selector UI
-              
-              const SizedBox(height: 8),
-  
-              // Action Buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isSmallScreen = constraints.maxWidth < 600;
+            final headerSize = isSmallScreen ? 20.0 : 24.0; // Reduced from 24
+            final titleSize = isSmallScreen ? 18.0 : 22.0;
+            final subtitleSize = isSmallScreen ? 14.0 : 18.0; // Reduced from 16
+          
+          return TelluluCard(
+            maxWidth: isSmallScreen ? 400 : 600, // Widened for tablet/desktop
+            child: SingleChildScrollView(
+              child: Column(
                 children: [
-                  // Dream Up Button
-                  _buildActionButton(
-                    'Dream Up', 
-                    const Color(0xFFF8E8C0), 
-                    onPressed: _dreamUpDescription,
-                    isLoading: _isDreaming,
+                  // Header
+                  _buildHeader(context, fontSize: headerSize),
+                  const SizedBox(height: 16),
+                  
+                  // Title & Subtitle
+                  Text(
+                    'Who is the hero today?',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.quicksand(
+                      fontSize: titleSize,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
                   ),
-                  // Upload Button
-                  _buildActionButton(
-                    'Upload', 
-                    const Color(0xFFF8E8C0), 
-                    onPressed: _pickImage
+                  Text(
+                    'Bring a new friend...',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.chewy(
+                      fontSize: subtitleSize,
+                      color: const Color(0xFF9FA0CE),
+                    ),
                   ),
-                ],
-              ),
-            const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+      
+                  // Uploaded Image Preview (If exists)
+                  if (_selectedImageBytes != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Stack(
+                         alignment: Alignment.topRight,
+                         children: [
+                           ClipRRect(
+                             borderRadius: BorderRadius.circular(16),
+                             child: Image.memory(_selectedImageBytes!, height: 150, fit: BoxFit.cover),
+                           ),
+                           IconButton(
+                             icon: const Icon(Icons.close, color: Colors.red),
+                             onPressed: () => setState(() => _selectedImageBytes = null),
+                           ),
+                         ],
+                      ),
+                    ),
+      
+                  const SizedBox(height: 8),
+      
+                  // Action Buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      // Dream Up Button
+                      _buildActionButton(
+                        'Dream Up', 
+                        const Color(0xFFF8E8C0), 
+                        onPressed: _dreamUpDescription,
+                        isLoading: _isDreaming,
+                        fontSize: isSmallScreen ? 14 : 16,
+                      ),
+                      // Upload Button
+                      _buildActionButton(
+                        'Upload', 
+                        const Color(0xFFF8E8C0), 
+                        onPressed: _pickImage,
+                        fontSize: isSmallScreen ? 14 : 16,
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 24),
 
-            // Paper Input Section
-            // Paper Input Section
-            _buildPaperInputSection(),
+                // Paper Input Section
+                _buildPaperInputSection(isSmallScreen),
 
-            const SizedBox(height: 24),
+                const SizedBox(height: 24),
 
-            // Your Cast Section
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Your Cast',
-                style: GoogleFonts.quicksand(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                // Your Cast Section
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Your Cast',
+                    style: GoogleFonts.quicksand(
+                      fontSize: titleSize, // Consistent with title
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 12),
+                _buildCastGrid(isSmallScreen), // Pass screen size
+
+                 const SizedBox(height: 24),
+                 // Bottom Nav Placeholder (Visual)
+                 _buildBottomNav(isSmallScreen),
+              ],
             ),
-            const SizedBox(height: 12),
-            _buildCastGrid(),
-
-             const SizedBox(height: 24),
-             // Bottom Nav Placeholder (Visual)
-             _buildBottomNav(),
-          ],
-        ),
-        ),
+          ),
+        );
+       }
       ),
-
+      ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, {double fontSize = 24.0}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -357,21 +386,19 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
           onPressed: () {
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (context) => HomePage(
-                themeNotifier: widget.themeNotifier,
-                geminiModelNotifier: widget.geminiModelNotifier,
-                stabilityModelNotifier: widget.stabilityModelNotifier,
-                creativityNotifier: widget.creativityNotifier,
-              )),
+              MaterialPageRoute<void>(builder: (context) => const HomePage()),
               (route) => false,
             );
           },
         ),
-        Text(
-          'Tellulu Tales',
-          style: GoogleFonts.chewy(
-             fontSize: 24,
-             color: const Color(0xFF9FA0CE), 
+        Flexible(
+          child: Text(
+            'Tellulu Tales',
+            style: GoogleFonts.chewy(
+               fontSize: fontSize,
+               color: const Color(0xFF9FA0CE), 
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         IconButton(
@@ -379,12 +406,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
           onPressed: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => SettingsPage(
-                themeNotifier: widget.themeNotifier,
-                geminiModelNotifier: widget.geminiModelNotifier,
-                stabilityModelNotifier: widget.stabilityModelNotifier,
-                creativityNotifier: widget.creativityNotifier,
-              )),
+              MaterialPageRoute<void>(builder: (context) => const SettingsPage()),
             );
           },
         ),
@@ -392,7 +414,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
     );
   }
 
-  Widget _buildActionButton(String label, Color color, {required VoidCallback onPressed, bool isLoading = false}) {
+  Widget _buildActionButton(String label, Color color, {required VoidCallback onPressed, bool isLoading = false, double fontSize = 16.0}) {
     return ElevatedButton(
       onPressed: isLoading ? null : onPressed,
       style: ElevatedButton.styleFrom(
@@ -413,12 +435,12 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
           )
         : Text(
             label,
-            style: GoogleFonts.quicksand(fontWeight: FontWeight.bold),
+            style: GoogleFonts.quicksand(fontWeight: FontWeight.bold, fontSize: fontSize),
           ),
     );
   }
 
-  Widget _buildPaperInputSection() {
+  Widget _buildPaperInputSection(bool isSmallScreen) {
     return Stack(
       alignment: Alignment.bottomCenter,
       children: [
@@ -430,7 +452,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
              decoration: BoxDecoration(
                color: const Color(0xFFFFF9E6), // Pale yellow paper look
                border: Border.all(color: Colors.black87, width: 1.5),
-               borderRadius: BorderRadius.only(
+               borderRadius: const BorderRadius.only(
                  topLeft: Radius.circular(2), // Slight irregularity
                  topRight: Radius.circular(2),
                  bottomLeft: Radius.circular(2),
@@ -438,7 +460,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
                ),
                boxShadow: [
                  BoxShadow(
-                   color: Colors.black.withOpacity(0.1),
+                   color: Colors.black.withValues(alpha: 0.1),
                    blurRadius: 4,
                    offset: const Offset(2, 4),
                  ),
@@ -449,13 +471,13 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
                children: [
                  Text(
                    'Choose Your Style',
-                   style: GoogleFonts.quicksand(fontWeight: FontWeight.bold, fontSize: 16),
+                   style: GoogleFonts.quicksand(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
                  ),
                  const SizedBox(height: 8),
                  Wrap(
                    spacing: 8,
                    runSpacing: 8,
-                    children: _stylePresets.keys.map((style) => _buildStyleChip(style)).toList(),
+                    children: _stylePresets.keys.map(_buildStyleChip).toList(),
                  ),
                  const SizedBox(height: 12),
                  const Divider(color: Colors.black12, thickness: 1),
@@ -463,6 +485,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
                  TextField(
                    controller: _descriptionController,
                    maxLines: 3,
+                   style: GoogleFonts.quicksand(color: Colors.black87), // Force black input text
                    decoration: InputDecoration(
                      border: InputBorder.none,
                      hintText: 'Describe your hero...',
@@ -478,7 +501,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
         Positioned(
           bottom: 0,
           child: ElevatedButton(
-            onPressed: _isDrawing ? null : _drawIt,
+            onPressed: _isDrawing ? null : () => unawaited(_drawIt()),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF9FA0CE),
               foregroundColor: Colors.white,
@@ -494,7 +517,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
               : Text(
               'Draw it!',
               style: GoogleFonts.chewy(
-                fontSize: 24, // Increased to 24 to match other Chewy buttons
+                fontSize: isSmallScreen ? 18 : 24, // Increased to 24 to match other Chewy buttons
                 color: Colors.white,
                 fontWeight: FontWeight.normal, // Chewy is naturally bold/thick
               ),
@@ -515,7 +538,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF9FA0CE) : Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.black54, width: 1),
+          border: Border.all(color: Colors.black54),
         ),
         child: Text(
           label,
@@ -529,13 +552,13 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
     );
   }
 
-  Widget _buildCastGrid() {
+  Widget _buildCastGrid(bool isSmallScreen) {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.85,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: isSmallScreen ? 2 : 3, // More columns on larger screens
+        childAspectRatio: 0.75,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
@@ -551,7 +574,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
             border: Border.all(color: Colors.black87, width: 1.5),
              boxShadow: [
                BoxShadow(
-                 color: Colors.black.withOpacity(0.05),
+                 color: Colors.black.withValues(alpha: 0.05),
                  blurRadius: 4,
                  offset: const Offset(0, 4),
                ),
@@ -562,7 +585,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
               InkWell(
                 onTap: () => _showViewDialog(char),
                 child: Padding(
-                  padding: const EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.all(8),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -635,7 +658,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
       child: Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.8),
+          color: Colors.white.withValues(alpha: 0.8),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, size: 16, color: Colors.black87),
@@ -644,7 +667,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
   }
 
   void _showViewDialog(Map<String, dynamic> char) {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -660,11 +683,11 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
                 ),
               const SizedBox(height: 16),
               Text(
-                char['name'],
+                char['name'] as String,
                 style: GoogleFonts.quicksand(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               Text(
-                char['role'],
+                char['role'] as String,
                 style: GoogleFonts.quicksand(fontSize: 16, color: Colors.grey[600]),
               ),
               const SizedBox(height: 20),
@@ -680,10 +703,10 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
   }
 
   void _showEditDialog(int index, Map<String, dynamic> char) {
-    final nameController = TextEditingController(text: char['name']);
-    final roleController = TextEditingController(text: char['role']);
+    final nameController = TextEditingController(text: char['name'] as String?);
+    final roleController = TextEditingController(text: char['role'] as String?);
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Edit Character', style: GoogleFonts.quicksand(fontWeight: FontWeight.bold)),
@@ -708,7 +731,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
                 _cast[index]['name'] = nameController.text;
                 _cast[index]['role'] = roleController.text;
               });
-              _saveCast(); // Save changes to disk
+              unawaited(_saveCast()); // Save changes to disk
               Navigator.pop(context);
             },
             child: const Text('Save'),
@@ -719,7 +742,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
   }
 
   void _showDeleteDialog(int index) {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Character?'),
@@ -731,7 +754,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
               setState(() {
                 _cast.removeAt(index);
               });
-              _saveCast(); // Save changes
+              unawaited(_saveCast()); // Save changes
               Navigator.pop(context);
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
@@ -740,20 +763,16 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
       ),
     );
   }
+
   
-  Widget _buildBottomNav() {
+  Widget _buildBottomNav(bool isSmallScreen) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
         _buildNavIcon(Icons.home_outlined, 'Home', onTap: () {
            Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (context) => HomePage(
-                themeNotifier: widget.themeNotifier,
-                geminiModelNotifier: widget.geminiModelNotifier,
-                stabilityModelNotifier: widget.stabilityModelNotifier,
-                creativityNotifier: widget.creativityNotifier,
-              )),
+              MaterialPageRoute(builder: (context) => const HomePage()),
               (route) => false,
             );
         }),
@@ -761,12 +780,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
         _buildNavIcon(Icons.book_outlined, 'Stories', onTap: () {
             Navigator.pushReplacement(
               context, 
-              MaterialPageRoute(builder: (context) => StoriesPage(
-                  themeNotifier: widget.themeNotifier,
-                  geminiModelNotifier: widget.geminiModelNotifier,
-                  stabilityModelNotifier: widget.stabilityModelNotifier,
-                  creativityNotifier: widget.creativityNotifier,
-              ))
+              MaterialPageRoute<void>(builder: (context) => const StoriesPage())
             );
         }),
         _buildNavIcon(Icons.person_outline, 'Profile'),
@@ -782,7 +796,7 @@ class _CharacterCreationPageState extends State<CharacterCreationPage> {
         children: [
           Icon(
             icon,
-            color: isActive ? const Color(0xFF9FA0CE) : Theme.of(context).iconTheme.color?.withOpacity(0.6),
+            color: isActive ? const Color(0xFF9FA0CE) : Theme.of(context).iconTheme.color?.withValues(alpha: 0.6),
              size: 28,
           ),
           Text(

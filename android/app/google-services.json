@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "608345659362",
+    "project_id": "tellulu",
+    "storage_bucket": "tellulu.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:608345659362:android:73b460ed6f30d466904bbb",
+        "android_client_info": {
+          "package_name": "com.tellulu.tellulu"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "608345659362-hcfhbous04mj91hfopaq6lkud3edvn59.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tellulu.tellulu",
+            "certificate_hash": "cdb84ab0fe58a09d66fe9fac27bd4c0ca1604710"
+          }
+        },
+        {
+          "client_id": "608345659362-ig6ns08fsatt18qous6gu0ai9crlt7l9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB5u37Pjn3A3RLr4fYkHtGMx3DAk_TG3ck"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "608345659362-ig6ns08fsatt18qous6gu0ai9crlt7l9.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "608345659362-ubl0lvdpnfh2fg7hs3c4mooa7ab09ulg.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.tellulu.tellulu"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
