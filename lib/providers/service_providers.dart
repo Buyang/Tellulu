@@ -1,32 +1,29 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:tellulu/common/app_config.dart';
 import 'package:tellulu/services/gemini_service.dart';
 import 'package:tellulu/services/stability_service.dart';
+import 'package:tellulu/services/storage_service.dart';
 
 part 'service_providers.g.dart';
 
 @Riverpod(keepAlive: true)
 GeminiService geminiService(Ref ref) {
-  // Check dart-define first (Web/CI), then dotenv (Mobile dev)
-  final apiKey = const String.fromEnvironment('GEMINI_KEY').isNotEmpty
-      ? const String.fromEnvironment('GEMINI_KEY')
-      : dotenv.env['GEMINI_KEY'] ?? '';
-      
-  if (apiKey.isEmpty) {
-    debugPrint('WARNING: GEMINI_KEY is missing (checked dart-define and .env)');
+  if (!AppConfig.isGeminiConfigured) {
+     debugPrint('WARNING: Gemini Service initialized without API Key');
   }
-  return GeminiService(apiKey);
+  return GeminiService();
 }
 
 @Riverpod(keepAlive: true)
 StabilityService stabilityService(Ref ref) {
-  final apiKey = const String.fromEnvironment('STABILITY_KEY').isNotEmpty
-      ? const String.fromEnvironment('STABILITY_KEY')
-      : dotenv.env['STABILITY_KEY'] ?? '';
-      
-  if (apiKey.isEmpty) {
-    debugPrint('WARNING: STABILITY_KEY is missing (checked dart-define and .env)');
+  if (!AppConfig.isStabilityConfigured) {
+     debugPrint('WARNING: Stability Service initialized without API Key');
   }
-  return StabilityService(apiKey);
+  return StabilityService();
+}
+
+@Riverpod(keepAlive: true)
+StorageService storageService(Ref ref) {
+  return StorageService();
 }

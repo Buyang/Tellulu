@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:tellulu/common/widgets/tellulu_card.dart';
 import 'package:tellulu/features/auth/web_auth.dart' as web_auth;
 import 'package:tellulu/features/create/character_creation_page.dart';
+import 'package:tellulu/providers/service_providers.dart'; // [NEW]
 
 class UserProfilePage extends ConsumerStatefulWidget {
 
@@ -43,7 +45,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
     _nameController = TextEditingController(text: widget.initialName);
     _emailController = TextEditingController(text: widget.initialEmail);
     unawaited(_loadSavedData());
-    unawaited(_initGoogleSignIn()); // Start initialization immediately
+    // unawaited(_initGoogleSignIn()); // Removed
   }
 
   Future<void> _loadSavedData() async {
@@ -70,51 +72,9 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
   
   // Flag to track initialization (though GoogleSignIn tracks it internally, 
   // we want to initiate it early).
-  Future<void> _initGoogleSignIn() async {
-    try {
-      if (kIsWeb) {
-         await GoogleSignIn.instance.initialize(
-           clientId: '608345659362-ig6ns08fsatt18qous6gu0ai9crlt7l9.apps.googleusercontent.com',
-         );
-      } else {
-        // Mobile init
-        print('Initializing Google Sign-In for Mobile...');
-        GoogleSignIn.instance.initialize(
-          serverClientId: '608345659362-ig6ns08fsatt18qous6gu0ai9crlt7l9.apps.googleusercontent.com',
-        );
-      }
-      
-      // Listen for sign-in events (required for Web renderButton flow)
-      GoogleSignIn.instance.authenticationEvents.listen(
-        (GoogleSignInAuthenticationEvent event) {
-           if (event is GoogleSignInAuthenticationEventSignIn) {
-             _handleGoogleUser(event.user);
-           }
-        },
-        onError: (Object error) {
-           print('Google Sign-In Stream Error: $error');
-        },
-      );
-      // Also check if already signed in?
-      // final account = await GoogleSignIn.instance.signInSilently();
-      // if (account != null) _handleGoogleUser(account);
+  // Removed incompatible _initGoogleSignIn method
 
-    } catch (e) {
-      print('Google Sign-In Init Error: $e');
-    }
-  }
 
-  void _handleGoogleUser(GoogleSignInAccount account) {
-    if (!mounted) return;
-    setState(() {
-      _nameController.text = account.displayName ?? _nameController.text;
-      _emailController.text = account.email;
-    });
-    // Debounce or ensure we don't trigger multiple times?
-    // For now, simple logic.
-    unawaited(_saveData());
-    if (mounted) unawaited(_completeSignUp());
-  }
 
   @override
   void dispose() {
@@ -132,23 +92,27 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
       String? email;
 
       if (kIsWeb) {
-         // Manual Web Flow
-         final result = await web_auth.signInWithGoogle(
-            clientId: '608345659362-ig6ns08fsatt18qous6gu0ai9crlt7l9.apps.googleusercontent.com',
-         );
-         if (result != null) {
-            name = result['name'];
-            email = result['email'];
-         } else {
-            return; // Failed or cancelled
-         }
+         // WEB: Use Firebase Auth Popup
+         final provider = GoogleAuthProvider();
+         provider.addScope('email');
+         final userCredential = await FirebaseAuth.instance.signInWithPopup(provider);
+         name = userCredential.user?.displayName;
+         email = userCredential.user?.email;
       } else {
-         // Mobile Flow
-         final googleSignIn = GoogleSignIn.instance;
-         final account = await googleSignIn.authenticate();
-          name = account.displayName;
-          email = account.email;
-             }
+         // Mobile Flow with Firebase
+         final GoogleSignIn googleSignIn = GoogleSignIn();
+         final GoogleSignInAccount? account = await googleSignIn.signIn();
+         if (account == null) return;
+         
+         final GoogleSignInAuthentication googleAuth = await account.authentication;
+         final OAuthCredential credential = GoogleAuthProvider.credential(
+           accessToken: googleAuth.accessToken,
+           idToken: googleAuth.idToken,
+         );
+         final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+         name = userCredential.user?.displayName;
+         email = userCredential.user?.email;
+      }
 
       if (email != null) {
         setState(() {
@@ -158,6 +122,10 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
         
         // Auto-save and proceed after successful login
         await _saveData();
+        // [FIX] Force Storage Re-init to switch to user-scoped box
+        if (mounted) {
+           await ref.read(storageServiceProvider).init();
+        }
         if (mounted) _completeSignUp();
       }
 

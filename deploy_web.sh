@@ -1,23 +1,16 @@
 #!/bin/bash
 
-# Check for API Keys
-if [ -z "$GEMINI_KEY" ] || [ -z "$STABILITY_KEY" ]; then
-  echo "⚠️  WARNING: GEMINI_KEY or STABILITY_KEY not found in environment."
-  echo "   Use: GEMINI_KEY=... STABILITY_KEY=... ./deploy_web.sh"
-  # Optional: Ask user to continue or exit? For now, we warn but allow build (features will be disabled).
-  read -p "Do you want to continue with missing keys? (y/N) " -n 1 -r
-  echo
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+# Build the Flutter web app (release mode) with keys from .env
+echo "🚧 Building Flutter web app..."
+# Note: --dart-define-from-file=.env handles reading the file directly.
+# Ensure .env exists or this will fail.
+if [ ! -f ".env" ]; then
+    echo "❌ Error: .env file not found! API keys are required for build."
     exit 1
-  fi
 fi
 
-# Build the Flutter web app (release mode) with keys
-echo "🚧 Building Flutter web app..."
 flutter build web --release \
-  --dart-define=GEMINI_KEY="$GEMINI_KEY" \
-  --dart-define=STABILITY_KEY="$STABILITY_KEY" \
-  --no-wasm-dry-run
+  --dart-define-from-file=.env
 
 
 # Check if build was successful

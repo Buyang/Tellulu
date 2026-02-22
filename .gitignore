@@ -44,3 +44,15 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 .env
+
+# Sensitive files
+functions/.env
+functions/node_modules/
+
+# Build logs and temp files
+build_log.txt
+error_log.txt
+verbose_log.txt
+models_list.txt
+prompt.json
+*.zip

@@ -1,82 +1,55 @@
-// ignore_for_file: unused_import, unreachable_from_main
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mockito/annotations.dart';
 import 'package:tellulu/features/create/character_creation_page.dart';
 import 'package:tellulu/services/gemini_service.dart';
 import 'package:tellulu/services/stability_service.dart';
 
-// Mock AssetBundle
-class MockAssetBundle extends CachingAssetBundle {
-  @override
-  Future<ByteData> load(String key) async {
-    // Return empty bytes for any asset (fonts)
-    return ByteData(0);
-  }
-}
+import 'character_creation_page_test.mocks.dart';
 
-// Mock Services
-class MockImagePicker extends ImagePicker {
-  @override
-  Future<XFile?> pickImage({
-    required ImageSource source,
-    double? maxWidth,
-    double? maxHeight,
-    int? imageQuality,
-    CameraDevice preferredCameraDevice = CameraDevice.rear,
-    bool requestFullMetadata = true,
-  }) async {
-    // Return a dummy 1x1 png image
-    final bytes = Uint8List.fromList([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 153, 99, 100, 248, 255, 191, 30, 0, 5, 132, 2, 127, 194, 91, 30, 42, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130]);
-    return XFile.fromData(bytes);
-  }
-}
-
-class MockStabilityService extends StabilityService {
-  MockStabilityService() : super('mock-key');
-
-  String? lastStylePreset;
-  double? lastImageStrength;
-  Uint8List? lastInitImageBytes;
-
-  @override
-  Future<String?> generateImage({
-    required String prompt, required String modelId, Uint8List? initImageBytes,
-    String? stylePreset,
-    double imageStrength = 0.35,
-    int? seed,
-  }) async {
-    lastStylePreset = stylePreset;
-    lastImageStrength = imageStrength;
-    lastInitImageBytes = initImageBytes;
-    return 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAFhAJ/wlseKgAAAABJRU5ErkJggg=='; // 1x1 pixel base64
-  }
-}
-
-class MockGeminiService extends GeminiService {
-  MockGeminiService() : super('mock-key');
-
-  @override
-  Future<String?> generateCharacterDescription({
-    required String prompt,
-    String model = 'gemini-1.5-flash',
-  }) async {
-    return 'A brave hero description.';
-  }
-}
-
+@GenerateMocks([GeminiService, StabilityService])
 void main() {
-  // setUp(() {
-  //    GoogleFonts.config.allowRuntimeFetching = true;
-  // });
+  late MockGeminiService mockGeminiService;
+  late MockStabilityService mockStabilityService;
 
-  testWidgets('SDXL Style Preset Selection Verification', (WidgetTester tester) async {
-    // TODO: Fix GoogleFonts mocking or allow runtime fetching properly
-  }, skip: true);
+  setUp(() {
+    mockGeminiService = MockGeminiService();
+    mockStabilityService = MockStabilityService();
+  });
 
+  testWidgets('CharacterCreationPage renders correctly', (WidgetTester tester) async {
+    // Build the widget in a ProviderScope (required for Riverpod)
+    // We inject mocks into the widget to avoid real API calls
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: CharacterCreationPage(
+            geminiService: mockGeminiService,
+            stabilityService: mockStabilityService,
+          ),
+        ),
+      ),
+    );
+
+    // Verify Title
+    expect(find.text('Who is the hero today?'), findsOneWidget);
+    expect(find.text('Bring a new friend...'), findsOneWidget);
+
+    // Verify Buttons
+    expect(find.text('3. Dream Up More'), findsOneWidget);
+    expect(find.text('1. Pick Actor'), findsOneWidget); // Also updating this for consistency
+    expect(find.text('Draw it!'), findsOneWidget);
+
+    // Verify Style Chips (at least one)
+    expect(find.text('Digital Art'), findsOneWidget);
+    expect(find.text('Anime'), findsOneWidget);
+
+    // Verify Input Field
+    expect(find.byType(TextField), findsAtLeastNWidgets(1));
+    expect(find.text('Describe your hero...'), findsOneWidget);
+
+    // Verify Cast Section
+    expect(find.text('Your Cast'), findsOneWidget);
+  });
 }

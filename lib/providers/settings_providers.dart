@@ -63,21 +63,14 @@ class GeminiModelNotifier extends _$GeminiModelNotifier {
      final prefs = await ref.watch(sharedPreferencesProvider.future);
      final subscription = await ref.watch(userSubscriptionProvider.future);
      
-     final savedModel = prefs.getString('geminiModel') ?? 'gemini-1.5-flash';
-     
-     // Entitlement Check
-     // Force migration from 1.5 Flash (broken/404) or Exp to 2.0 Flash Stable
-     if (savedModel == 'gemini-1.5-flash' || savedModel == 'gemini-2.0-flash-exp') {
-       return 'gemini-2.0-flash';
-     }
+     final model = prefs.getString('geminiModel') ?? 'gemini-2.0-flash';
 
-     if (subscription == UserSubscription.free) {
-       // Free tier allowed valid model: 2.0 Flash
-       if (savedModel != 'gemini-2.0-flash') {
-          return 'gemini-2.0-flash';
-       }
+     // Enforce Free Tier restrictions
+     if (subscription == UserSubscription.free && model != 'gemini-2.0-flash') {
+         // Silently downgrade if they are on Free but have a Pro model selected
+         return 'gemini-2.0-flash';
      }
-     return savedModel;
+     return model;
   }
 
   Future<void> setModel(String model) async {
@@ -94,17 +87,13 @@ class StabilityModelNotifier extends _$StabilityModelNotifier {
      final prefs = await ref.watch(sharedPreferencesProvider.future);
      final subscription = await ref.watch(userSubscriptionProvider.future);
      
-     final savedModel = prefs.getString('stabilityModel') ?? 'stable-diffusion-xl-1024-v1-0';
+     final model = prefs.getString('stabilityModel') ?? 'stable-diffusion-xl-1024-v1-0';
      
-     // Entitlement Check: Free tier only gets basic SDXL
-     if (subscription == UserSubscription.free) {
-        // Example logic: Free users can only use the default v1-0 engine, or a specific subset.
-        // For simplicity, let's say 'stable-diffusion-3-sd3-medium' is Pro only.
-        if (savedModel == 'stable-diffusion-3-sd3-medium') {
-           return 'stable-diffusion-xl-1024-v1-0';
-        }
+     // Enforce Free Tier restrictions
+     if (subscription == UserSubscription.free && model != 'stable-diffusion-xl-1024-v1-0') {
+         return 'stable-diffusion-xl-1024-v1-0';
      }
-     return savedModel;
+     return model;
   }
 
   Future<void> setModel(String model) async {

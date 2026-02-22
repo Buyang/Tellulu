@@ -1,21 +1,17 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:tellulu/common/app_config.dart';
 import 'package:tellulu/services/gemini_service.dart';
 import 'package:tellulu/services/stability_service.dart';
 
 Future<void> main() async {
-  // Load .env
-  await dotenv.load();
-
-  final geminiKey = dotenv.env['GEMINI_KEY'] ?? '';
-  final stabilityKey = dotenv.env['STABILITY_KEY'] ?? '';
-
-  if (geminiKey.isEmpty || stabilityKey.isEmpty) {
-    print('ERROR: Keys missing in .env');
+  // Ensure we have keys from --dart-define
+  if (AppConfig.geminiKey.isEmpty || AppConfig.stabilityKey.isEmpty) {
+    print('ERROR: Keys missing. Run with: dart --dart-define-from-file=.env test/validate_all_models.dart');
     return;
   }
 
-  final geminiService = GeminiService(geminiKey);
-  final stabilityService = StabilityService(stabilityKey);
+  // Services now self-configure from AppConfig
+  final geminiService = GeminiService();
+  final stabilityService = StabilityService();
 
   final geminiModels = [
     'gemini-1.5-flash',

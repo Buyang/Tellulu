@@ -48,7 +48,7 @@ final class SharedPreferencesProvider
   }
 }
 
-String _$sharedPreferencesHash() => r'd0f94d4bd61259b4c06d24df95d1afc7eb5bd1c6';
+String _$sharedPreferencesHash() => r'48e60558ea6530114ea20ea03e69b9fb339ab129';
 
 @ProviderFor(UserSubscriptionNotifier)
 final userSubscriptionProvider = UserSubscriptionNotifierProvider._();
@@ -166,7 +166,7 @@ final class GeminiModelNotifierProvider
 }
 
 String _$geminiModelNotifierHash() =>
-    r'39957a929149247b2692e78dc4fe9085d6f54561';
+    r'84b2f5cca6d25ab11a1ea65626d1c4e1e07d9283';
 
 abstract class _$GeminiModelNotifier extends $AsyncNotifier<String> {
   FutureOr<String> build();
@@ -211,7 +211,7 @@ final class StabilityModelNotifierProvider
 }
 
 String _$stabilityModelNotifierHash() =>
-    r'1676fda9d8c1a967d23785150775cdb0fe12f5c9';
+    r'7dabdf44ec3962499abc050abbd84bd2515572e4';
 
 abstract class _$StabilityModelNotifier extends $AsyncNotifier<String> {
   FutureOr<String> build();

@@ -1,15 +1,19 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
+// import 'dart:typed_data'; // Unnecessary
+
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tellulu/common/widgets/tellulu_card.dart';
 import 'package:tellulu/features/home/home_page.dart';
+import 'package:tellulu/features/publish/publish_page.dart';
 import 'package:tellulu/features/settings/settings_page.dart';
 import 'package:tellulu/features/stories/stories_page.dart';
 import 'package:tellulu/providers/service_providers.dart';
@@ -43,24 +47,42 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
   // Keys are now handled via Service Providers and .env 
   
   final _descriptionController = TextEditingController();
-  late final ImagePicker _picker;
+  // Safe nullable picker
+  ImagePicker? _pickerInstance;
+  ImagePicker get _picker => _pickerInstance ??= widget.imagePicker ?? ImagePicker();
   
 
   @override
   void initState() {
     super.initState();
-    // In ConsumerStatefulWidget, we can access ref in initState but read/watch is nuanced.
-    // For services (stateless/singletons), reading the provider is fine.
-    // For providers created with riverpod_annotation they are auto-disposed or keepAlive.
-    
-    // Fallback to provider if not injected
     _geminiService = widget.geminiService ?? ref.read(geminiServiceProvider);
     _stabilityService = widget.stabilityService ?? ref.read(stabilityServiceProvider);
     
-    _picker = widget.imagePicker ?? ImagePicker();
+    // _picker is lazy loaded now
+    
     _selectedStyleKey = _stylePresets.keys.first;
     unawaited(_loadCast());
+    
+    // [NEW] Listen for background sync completion to refresh data
+    _syncSubscription = ref.read(storageServiceProvider).onSyncComplete.listen((_) {
+      if (mounted) {
+         debugPrint('Background Sync Complete. Refreshing UI...');
+         // Reload cast to show new data
+         _loadCast();
+         
+         // Optional: Show a small toast
+         ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+               content: Text('Stories synced!'), 
+               duration: Duration(seconds: 2),
+               behavior: SnackBarBehavior.floating, // Nice floating touch
+            ),
+         );
+      }
+    });
   }
+  
+  StreamSubscription? _syncSubscription; // [NEW]
 
   // State
 
@@ -68,6 +90,10 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
   // No local state for models anymore
   bool _isDreaming = false;
   bool _isDrawing = false;
+  bool _isAnalyzing = false; // [NEW] Analysis state
+  
+  // Forensics
+  String? _forensicAnalysis; // [NEW] Stores the visual traits
 
   // SDXL Style Presets Mapping
   final Map<String, String> _stylePresets = {
@@ -80,6 +106,9 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
     'Pixel Art': 'pixel-art',
     'Photographic': 'photographic',
     'Cinematic': 'cinematic',
+    'Claymation': 'craft-clay', // [NEW] Fun for kids
+    'Low Poly': 'low-poly',     // [NEW] Fun for kids
+    'Origami': 'origami',       // [NEW] Fun for kids
   };
   
   late String _selectedStyleKey; // Track selected key
@@ -88,70 +117,165 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
   List<Map<String, dynamic>> _cast = [];
 
   Future<void> _loadCast() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? castJson = prefs.getString('cast_data');
-    
-    if (castJson != null) {
-      try {
-        final List<dynamic> decodedList = jsonDecode(castJson);
+    // [REF] Use StorageService for Cloud Sync support
+    try {
+      final cast = await ref.read(storageServiceProvider).loadCast();
+      debugPrint('🔍 DEBUG: Loaded ${cast.length} cast members from StorageService');
+      
+      if (cast.isNotEmpty) {
         setState(() {
-          _cast = decodedList.map((item) {
-            final Map<String, dynamic> castItem = Map<String, dynamic>.from(item as Map);
-            // Decode Base64 image back to bytes if present
-            if (castItem['imageBase64'] != null) {
-              castItem['imageBytes'] = base64Decode(castItem['imageBase64'] as String);
-            }
-            return castItem;
+          _cast = cast.map((item) {
+             debugPrint('🔍 DEBUG ITEM: Name=${item['name']} Keys=${item.keys.toList()}');
+             if (item.containsKey('imageBase64')) {
+                final val = item['imageBase64'];
+                debugPrint('   > imageBase64 found. Type: ${val.runtimeType}, Length: ${val?.toString().length}');
+             } else {
+                debugPrint('   > ⚠️ imageBase64 MISSING');
+             }
+
+             // Restoration: Decode Base64 if imageBytes is missing
+             if (item['imageBytes'] == null && item['imageBase64'] != null) {
+               try {
+                 item['imageBytes'] = base64Decode(item['imageBase64'] as String);
+               } catch (e) {
+                 debugPrint('Error decoding cast image: $e');
+               }
+             }
+
+             if (item['originalImageBytes'] == null && item['originalImageBase64'] != null) {
+               try {
+                 item['originalImageBytes'] = base64Decode(item['originalImageBase64'] as String);
+               } catch (e) {
+                 debugPrint('Error decoding original cast image: $e');
+               }
+             }
+             
+             // Ensure 'color' is int
+             if (item['color'] is String) {
+               item['color'] = int.tryParse(item['color']) ?? 0xFFE0F7FA;
+             }
+             return item;
           }).toList();
         });
-      } on Object catch (e) {
-        print('Error loading cast: $e');
+      } else {
+        // Default initial mock data if nothing saved
+        setState(() {
+          _cast = [
+            {'name': 'Luna the Brave', 'role': 'space explorer', 'color': 0xFFE0E7FF},
+            {'name': 'Bun-Bun', 'role': 'magic guide', 'color': 0xFFFDF4E3},
+            {'name': 'Dino Dan', 'role': 'prehistoric pal', 'color': 0xFFE8F5E9},
+            {'name': 'Princess Pea', 'role': 'royal highness', 'color': 0xFFFCE4EC},
+          ];
+        });
       }
-    } else {
-      // Default initial mock data if nothing saved
-      setState(() {
-        _cast = [
-          {'name': 'Luna the Brave', 'role': 'space explorer', 'color': 0xFFE0E7FF},
-          {'name': 'Bun-Bun', 'role': 'magic guide', 'color': 0xFFFDF4E3},
-          {'name': 'Dino Dan', 'role': 'prehistoric pal', 'color': 0xFFE8F5E9},
-          {'name': 'Princess Pea', 'role': 'royal highness', 'color': 0xFFFCE4EC},
-        ];
-      });
+    } catch (e) {
+      debugPrint('Error loading cast: $e');
     }
   }
 
   Future<void> _saveCast() async {
-    final prefs = await SharedPreferences.getInstance();
+    // [REF] Use StorageService
+    // We pass the list directly. Hive handles many types, but for Cloud Sync (JSON),
+    // we should ensure binary data (Uint8List) is handled or compatible.
+    // Hive supports Uint8List. Firestore/JSON might need Base64.
+    // StorageService might handle it, or we prepare it here.
+    // Looking at StorageService.saveCast -> CloudStorageService.uploadCast...
+    // Let's keep the logic of converting imageBytes to base64 HERE to be safe for JSON serialization layers.
     
-    // Convert list to JSON-encodable format (bytes -> base64)
-    final jsonList = _cast.map((item) {
+    final safeCast = _cast.map((item) {
       final Map<String, dynamic> jsonItem = Map<String, dynamic>.from(item);
-      if (jsonItem['imageBytes'] != null) {
+      
+      // Convert bytes to base64 for storage portability
+      if (jsonItem['imageBytes'] != null && jsonItem['imageBytes'] is Uint8List) {
         jsonItem['imageBase64'] = base64Encode(jsonItem['imageBytes'] as List<int>);
-        jsonItem.remove('imageBytes'); // Remove bytes from JSON object
+        jsonItem.remove('imageBytes'); // Remove raw bytes
       }
+      
+      if (jsonItem['originalImageBytes'] != null && jsonItem['originalImageBytes'] is Uint8List) {
+        jsonItem['originalImageBase64'] = base64Encode(jsonItem['originalImageBytes'] as List<int>);
+        jsonItem.remove('originalImageBytes');
+      }
+      
       return jsonItem;
     }).toList();
 
-    await prefs.setString('cast_data', jsonEncode(jsonList));
+    await ref.read(storageServiceProvider).saveCast(safeCast);
   }
 
+  String? _uploadError;
+
   Future<void> _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      final bytes = await image.readAsBytes();
+    setState(() => _uploadError = null);
+    try {
+      Uint8List? bytes;
+      
+      // Use FilePicker for Web to avoid Blob/XFile issues
+      if (kIsWeb) {
+        debugPrint('Picking file on Web...');
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          allowMultiple: false,
+          withData: true, 
+        );
+        if (result != null && result.files.isNotEmpty) {
+          bytes = result.files.first.bytes;
+        }
+      } else {
+        // Use ImagePicker for Mobile (Native UI)
+        debugPrint('Picking file on Mobile (ImagePicker)...');
+        final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+        if (image != null) {
+          bytes = await image.readAsBytes();
+        }
+      }
+
+      if (bytes != null) {
+        setState(() {
+          _selectedImageBytes = bytes;
+          _uploadError = null;
+        });
+      }
+    } catch (e, stack) {
+      debugPrint('Character Image Picker Error: $e');
+      debugPrint('Stack: $stack');
+      setState(() => _uploadError = '[Web:$kIsWeb] $e');
+    }
+
+    // Trigger Forensic Analysis automatically if image exists
+    if (_selectedImageBytes != null) {
+      await _performForensicAnalysis();
+    }
+  }
+
+  Future<void> _performForensicAnalysis() async {
+    setState(() {
+      _isAnalyzing = true; 
+      _forensicAnalysis = null; // Clear old result
+    });
+
+    final analysis = await _geminiService.analyzeImage(_selectedImageBytes!);
+
+    if (mounted) {
       setState(() {
-        _selectedImageBytes = bytes;
+        _isAnalyzing = false;
+        _forensicAnalysis = analysis;
       });
+      
+      if (analysis != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(content: Text('Forensic Analysis Complete: Traits identified!')),
+        );
+      }
     }
   }
 
   Future<void> _dreamUpDescription() async {
     setState(() => _isDreaming = true);
-    final model = ref.read(geminiModelProvider).value ?? 'gemini-2.0-flash-exp';
+    final model = ref.read(geminiModelProvider).value ?? 'gemini-2.0-flash';
     final description = await _geminiService.generateCharacterDescription(
       prompt: "Create a creative, playful character description for a children's story hero. The character is a $_selectedStyleKey. Keep it under 1000 characters.",
       model: model,
+      visualContext: _forensicAnalysis, // [NEW] Pass the visual analysis
     );
     if (mounted) {
       if (description != null) {
@@ -175,11 +299,11 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
       return;
     }
 
-    print('DrawIt: Called');
+    debugPrint('DrawIt: Called');
     setState(() => _isDrawing = true);
-    print('DrawIt: Image bytes: ${_selectedImageBytes?.length}');
-    print('DrawIt: Description: ${_descriptionController.text}');
-    print('DrawIt: Style: $_selectedStyleKey');
+    debugPrint('DrawIt: Image bytes: ${_selectedImageBytes?.length}');
+    debugPrint('DrawIt: Description: ${_descriptionController.text}');
+    debugPrint('DrawIt: Style: $_selectedStyleKey');
     
     // Resize to 1024x1024 (Square Crop) for Stability API
     Uint8List? finalImageBytes = _selectedImageBytes;
@@ -196,7 +320,7 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
           finalImageBytes = resizedBytes;
         }
       } on Object catch (e) {
-        print('Error resizing image: $e');
+        debugPrint('Error resizing image: $e');
         // Proceed with original, might fail but worth a try
       }
     }
@@ -205,13 +329,43 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
     final modelId = ref.read(stabilityModelProvider).value ?? 'stable-diffusion-xl-1024-v1-0';
     final imageStrength = ref.read(creativityProvider).value ?? 0.35;
 
-    final base64Image = await _stabilityService.generateImage(
-      initImageBytes: finalImageBytes,
-      prompt: _descriptionController.text,
-      stylePreset: _stylePresets[_selectedStyleKey],
-      modelId: modelId,
-      imageStrength: imageStrength,
-    );
+    // Safety Engine Loop
+    String? acceptedBase64;
+    int attempts = 0;
+
+    while (attempts < 2 && acceptedBase64 == null) {
+      attempts++;
+      
+      final candidateBase64 = await _stabilityService.generateImage(
+        initImageBytes: finalImageBytes,
+        prompt: _descriptionController.text,
+        stylePreset: _stylePresets[_selectedStyleKey],
+        modelId: modelId,
+        imageStrength: imageStrength,
+        seed: attempts > 1 ? DateTime.now().millisecondsSinceEpoch : null, // Shift seed on retry
+      );
+
+      if (candidateBase64 != null) {
+         // --- SAFETY AUDIT ---
+         final bytes = base64Decode(candidateBase64);
+         final audit = await _geminiService.validateImageSafety(bytes);
+         
+         if (audit != null && audit['safe'] == true) {
+           acceptedBase64 = candidateBase64;
+         } else {
+           final reason = audit?['reason'] ?? "Content Safety Flag";
+           debugPrint('⚠️ DRAW IT UNSAFE BLOCK: $reason');
+           
+           if (mounted && attempts < 2) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                 SnackBar(content: Text('Safety Engine: Refining content... ($reason)')),
+              );
+           }
+         }
+      }
+    }
+
+    final base64Image = acceptedBase64;
 
     if (mounted) {
       if (base64Image != null) {
@@ -226,21 +380,41 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
             final resized = img.copyResize(rawImage, width: 512); 
             // Encode as JPEG with quality 70
             optimizedBytes = Uint8List.fromList(img.encodeJpg(resized, quality: 70));
-            optimizedBytes = Uint8List.fromList(img.encodeJpg(resized, quality: 70));
           }
         } on Object catch (e) {
-          print('Error optimizing image: $e');
+          debugPrint('Error optimizing image: $e');
         }
 
         setState(() {
           _isDrawing = false;
           // Add to cast automatically for fun
+          // Optimize ORIGINAL image for storage too (prevent crash)
+          Uint8List? optimizedOriginalBytes;
+          if (_selectedImageBytes != null) {
+             try {
+                final rawOrg = img.decodeImage(_selectedImageBytes!);
+                if (rawOrg != null) {
+                   // Resize to reasonable size (e.g. 512px)
+                   final resizedOrg = img.copyResize(rawOrg, width: 512);
+                   optimizedOriginalBytes = Uint8List.fromList(img.encodeJpg(resizedOrg, quality: 70));
+                }
+             } catch (e) {
+                debugPrint("Error optimizing original image: $e");
+             }
+          }
+
           _cast.insert(0, {
              'name': 'New Hero',
-             'role': _selectedStyleKey,
-             'description': _descriptionController.text, // Save description for story consistency
-             'color': 0xFFFFF9C4, // Yellowish
-             'imageBytes': optimizedBytes, // Save optimized version
+             'role': _descriptionController.text.split(',').first, // Extract a brief role
+             'style': _selectedStyleKey, // [NEW] Explicit Style Persistence
+             'description': _descriptionController.text, // Finalized Description
+             'color': 0xFFFFF9C4, 
+             'imageBytes': optimizedBytes, // Generated Image
+             
+             // [NEW] Persisted Artifacts
+             'originalImageBytes': optimizedOriginalBytes, // 1. Original Reference
+             'forensicAnalysis': _forensicAnalysis,        // 2. Forensic Analysis
+             'stabilityPrompt': _descriptionController.text, // 4. Prompt Sent (User/Gemini text)
           });
           _saveCast(); // Save changes
         });
@@ -255,6 +429,7 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
 
   @override
   void dispose() {
+    _syncSubscription?.cancel(); // [NEW]
     _descriptionController.dispose();
     super.dispose();
   }
@@ -325,23 +500,33 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      // Dream Up Button
+                      // Upload Button (now first)
                       _buildActionButton(
-                        'Dream Up', 
+                        '1. Pick Actor', 
+                        const Color(0xFFF8E8C0), 
+                        onPressed: _pickImage,
+                        isLoading: _isAnalyzing, // Show loading during analysis
+                        fontSize: isSmallScreen ? 14 : 16,
+                      ),
+                      // Dream Up Button (now second)
+                      _buildActionButton(
+                        '3. Dream Up More', 
                         const Color(0xFFF8E8C0), 
                         onPressed: _dreamUpDescription,
                         isLoading: _isDreaming,
                         fontSize: isSmallScreen ? 14 : 16,
                       ),
-                      // Upload Button
-                      _buildActionButton(
-                        'Upload', 
-                        const Color(0xFFF8E8C0), 
-                        onPressed: _pickImage,
-                        fontSize: isSmallScreen ? 14 : 16,
-                      ),
                     ],
                   ),
+                    if (_uploadError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          'Start Error: $_uploadError',
+                          style: GoogleFonts.quicksand(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                 const SizedBox(height: 24),
 
                 // Paper Input Section
@@ -381,16 +566,15 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        IconButton(
-          icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
-          onPressed: () {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute<void>(builder: (context) => const HomePage()),
-              (route) => false,
-            );
-          },
+        // Invisible spacer to balance the right icon and center the title
+        const Opacity(
+          opacity: 0.0, 
+          child: IconButton(
+            icon: Icon(Icons.settings_outlined), 
+            onPressed: null,
+          ),
         ),
+        
         Flexible(
           child: Text(
             'Tellulu Tales',
@@ -398,9 +582,11 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
                fontSize: fontSize,
                color: const Color(0xFF9FA0CE), 
             ),
+            textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
           ),
         ),
+        
         IconButton(
           icon: Icon(Icons.settings_outlined, color: Theme.of(context).iconTheme.color),
           onPressed: () {
@@ -425,7 +611,7 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
           borderRadius: BorderRadius.circular(20),
           side: const BorderSide(color: Colors.black87, width: 1.5),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
       child: isLoading 
         ? const SizedBox(
@@ -452,12 +638,7 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
              decoration: BoxDecoration(
                color: const Color(0xFFFFF9E6), // Pale yellow paper look
                border: Border.all(color: Colors.black87, width: 1.5),
-               borderRadius: const BorderRadius.only(
-                 topLeft: Radius.circular(2), // Slight irregularity
-                 topRight: Radius.circular(2),
-                 bottomLeft: Radius.circular(2),
-                 bottomRight: Radius.circular(30), // Folded corner effect area
-               ),
+               borderRadius: BorderRadius.circular(20), // [Updated] All 4 corners round
                boxShadow: [
                  BoxShadow(
                    color: Colors.black.withValues(alpha: 0.1),
@@ -470,7 +651,7 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
                crossAxisAlignment: CrossAxisAlignment.start,
                children: [
                  Text(
-                   'Choose Your Style',
+                   '2. Choose Avatar Style',
                    style: GoogleFonts.quicksand(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
                  ),
                  const SizedBox(height: 8),
@@ -481,6 +662,11 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
                  ),
                  const SizedBox(height: 12),
                  const Divider(color: Colors.black12, thickness: 1),
+                 const SizedBox(height: 8),
+                 Text(
+                   '4. Finalize Description',
+                   style: GoogleFonts.quicksand(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
+                 ),
                  const SizedBox(height: 8),
                  TextField(
                    controller: _descriptionController,
@@ -509,7 +695,7 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
                 borderRadius: BorderRadius.circular(20),
                 side: const BorderSide(color: Colors.black87, width: 1.5),
               ),
-               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 100, vertical: 12),
                elevation: 4,
             ),
             child: _isDrawing 
@@ -670,32 +856,84 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
     showDialog<void>(
       context: context,
       builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.all(16), // Allow it to be larger on mobile if needed
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (char['imageBytes'] != null)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.memory(char['imageBytes'] as Uint8List, height: 200, fit: BoxFit.cover),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 500), // Loosened constraint
+          child: Padding(
+            padding: const EdgeInsets.all(16), // Tighter padding
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (char['imageBytes'] != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.memory(
+                        char['imageBytes'] as Uint8List, 
+                        // Let height drive the size, but cap it so it fits on screen
+                        height: MediaQuery.of(context).size.height * 0.6,
+                        // No fixed width -> allows dialog to shrink to image width
+                        fit: BoxFit.contain,
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                
+                // Detailed Info Scrollable
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        Text(
+                          char['name'] as String,
+                          style: GoogleFonts.quicksand(fontSize: 24, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                        ),
+                        Text(
+                          char['role'] as String,
+                          style: GoogleFonts.quicksand(fontSize: 16, color: Colors.grey[600]),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Show Prompt
+                        if (char['stabilityPrompt'] != null) ...[
+                          Text("Design Prompt", style: GoogleFonts.quicksand(fontWeight: FontWeight.bold)),
+                          Text(char['stabilityPrompt'] as String, style: GoogleFonts.quicksand(fontSize: 14)),
+                          const SizedBox(height: 12),
+                        ],
+                        
+                        // Show Forensics
+                        if (char['forensicAnalysis'] != null) ...[
+                          Text("Visual DNA (Forensics)", style: GoogleFonts.quicksand(fontWeight: FontWeight.bold)),
+                          Text(char['forensicAnalysis'] as String, style: GoogleFonts.quicksand(fontSize: 12, color: Colors.grey[700])),
+                          const SizedBox(height: 12),
+                        ],
+
+                        // Show Original Reference
+                        if (char['originalImageBytes'] != null) ...[
+                           Text("Role Model", style: GoogleFonts.quicksand(fontWeight: FontWeight.bold)),
+                           const SizedBox(height: 8),
+                           ClipRRect(
+                             borderRadius: BorderRadius.circular(8),
+                             child: Image.memory(
+                               char['originalImageBytes'] as Uint8List,
+                               height: 100, // Thumbnail
+                               fit: BoxFit.cover,
+                             ),
+                           ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
-              const SizedBox(height: 16),
-              Text(
-                char['name'] as String,
-                style: GoogleFonts.quicksand(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              Text(
-                char['role'] as String,
-                style: GoogleFonts.quicksand(fontSize: 16, color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 20),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
-              ),
-            ],
+                
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -769,13 +1007,7 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
-        _buildNavIcon(Icons.home_outlined, 'Home', onTap: () {
-           Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (context) => const HomePage()),
-              (route) => false,
-            );
-        }),
+        _buildNavIcon(Icons.logout_outlined, 'Log Off', onTap: () => _showLogOffDialog(context)),
         _buildNavIcon(Icons.edit_outlined, 'Friends', isActive: true),
         _buildNavIcon(Icons.book_outlined, 'Stories', onTap: () {
             Navigator.pushReplacement(
@@ -783,8 +1015,38 @@ class _CharacterCreationPageState extends ConsumerState<CharacterCreationPage> {
               MaterialPageRoute<void>(builder: (context) => const StoriesPage())
             );
         }),
-        _buildNavIcon(Icons.person_outline, 'Profile'),
+        _buildNavIcon(Icons.publish, 'Publish', onTap: () {
+             Navigator.push(
+               context,
+               MaterialPageRoute<void>(builder: (context) => const PublishPage()),
+             );
+        }),
       ],
+    );
+  }
+
+  void _showLogOffDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Log Off?', style: GoogleFonts.quicksand(fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to go back to the login screen?', style: GoogleFonts.quicksand()),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const HomePage()),
+                (route) => false,
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF9FA0CE), foregroundColor: Colors.white),
+            child: const Text('Log Off'),
+          ),
+        ],
+      ),
     );
   }
 

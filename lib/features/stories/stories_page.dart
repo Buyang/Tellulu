@@ -1,21 +1,23 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:firebase_auth/firebase_auth.dart'; // [NEW]
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tellulu/common/widgets/tellulu_card.dart';
 import 'package:tellulu/features/create/character_creation_page.dart';
 import 'package:tellulu/features/home/home_page.dart';
+import 'package:tellulu/features/publish/publish_page.dart';
 import 'package:tellulu/features/settings/settings_page.dart';
 import 'package:tellulu/features/stories/new_story_view.dart';
 import 'package:tellulu/features/stories/story_result_view.dart';
 import 'package:tellulu/features/stories/story_weaver.dart';
+import 'package:tellulu/providers/service_providers.dart';
 import 'package:tellulu/providers/settings_providers.dart';
 import 'package:tellulu/services/gemini_service.dart';
 import 'package:tellulu/services/stability_service.dart';
+import 'package:tellulu/services/storage_service.dart'; // [NEW]
 
 class _BookTheme {
   _BookTheme({
@@ -49,6 +51,7 @@ class _StoriesPageState extends ConsumerState<StoriesPage> {
   // Navigation State
   StoriesViewMode _viewMode = StoriesViewMode.list;
   bool _isWeaving = false;
+  String? _weavingStatus; // [NEW]
 
   // Data
   List<Map<String, dynamic>> _stories = [];
@@ -58,28 +61,42 @@ class _StoriesPageState extends ConsumerState<StoriesPage> {
   // Services
   late final GeminiService _geminiService;
   late final StabilityService _stabilityService; 
+  late final StorageService _storageService; // [NEW]
 
   late final StoryWeaver _storyWeaver;
 
   @override
   void initState() {
     super.initState();
-    final geminiKey = dotenv.env['GEMINI_KEY'] ?? '';
-    final stabilityKey = dotenv.env['STABILITY_KEY'] ?? '';
+    // Keys are now handled internally by the services via AppConfig
     
-    if (geminiKey.isEmpty || stabilityKey.isEmpty) {
-      print('WARNING: API Keys are missing! specific features will not work.');
-    }
-
-    _geminiService = GeminiService(geminiKey);
-    _stabilityService = StabilityService(stabilityKey);
+    // We cannot use ref.read in initState directly for providers if they depend on context, 
+    // but these are service singletons so it is generally okay, or we can use lazy loading.
+    // However, best practice in Riverpod is to watch in build or read in callbacks.
+    // But since we need them for _storyWeaver which is used in callbacks...
+    // Let's rely on late initialization or assign in didChangeDependencies if needed.
+    // Actually, for this refactor, we can just read them.
+    
+    // _geminiService = ref.read(geminiServiceProvider); // This might be too early? 
+    // Let's use the container or just grab them when needed?
+    // Actually, let's keep it simple. We can read them in initState in ConsumerState.
+    
+    _geminiService = ref.read(geminiServiceProvider);
+    _stabilityService = ref.read(stabilityServiceProvider);
+    _storageService = ref.read(storageServiceProvider); // Singleton
     _storyWeaver = StoryWeaver(geminiService: _geminiService, stabilityService: _stabilityService);
-    _loadData();
+    
+    _initStorageAndLoad();
+  }
+  
+  Future<void> _initStorageAndLoad() async {
+     await _storageService.init();
+     await _loadData();
   }
 
   Future<void> _handleWeaveStory(Map<String, dynamic> params) async {
     // ignore: avoid_print
-    print('DEBUG: _handleWeaveStory started');
+    debugPrint('DEBUG: _handleWeaveStory started');
     setState(() => _isWeaving = true);
 
     try {
@@ -90,10 +107,19 @@ class _StoriesPageState extends ConsumerState<StoriesPage> {
         specialTouch: params['specialTouch'] as String,
         geminiModel: ref.read(geminiModelProvider).value ?? 'gemini-2.0-flash-exp',
         stabilityModel: ref.read(stabilityModelProvider).value ?? 'stable-diffusion-xl-1024-v1-0',
+        
+        cfgScale: 30.0 - ((await ref.read(creativityProvider.future)) * 25.0),
+        
         onProgress: (status) {
-             // Optional: Update loading status text in UI if needed (currently just weaving spinner)
-             // ignore: avoid_print
-             print('Weaving Progress: $status');
+             debugPrint('Weaving Progress: $status');
+             if (mounted) setState(() => _weavingStatus = status);
+        },
+        onIntermediateSave: (draft) async {
+             // [NEW] Safety Net: Save draft immediately
+             await _storageService.saveStory(draft);
+             // Optional: Update UI to show "Draft" state? 
+             // For now, let's keep it silent to avoid UI jank, 
+             // but if app restarts, it will show up.
         },
       );
 
@@ -106,11 +132,11 @@ class _StoriesPageState extends ConsumerState<StoriesPage> {
            _currentStory = newStory;
            _viewMode = StoriesViewMode.read; // Go to result
         });
-        await _saveStories();
+        await _storageService.saveStory(newStory); // Save robustly
         if (!mounted) return;
         
         // ignore: avoid_print
-        print('DEBUG: Story saved and state updated.');
+        debugPrint('DEBUG: Story saved and state updated.');
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to weave story. Please try again!')),
@@ -118,63 +144,36 @@ class _StoriesPageState extends ConsumerState<StoriesPage> {
       }
     } on Object catch (e, stack) {
       // ignore: avoid_print
-      print('Weaving Error: $e');
+      debugPrint('Weaving Error: $e');
       // ignore: avoid_print
-      print(stack);
+      debugPrint(stack.toString());
        if (mounted) {
          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('An error occurred while weaving.')),
+            SnackBar(content: Text('Error: ${e.toString().replaceAll("Exception: ", "")}')),
           );
        }
     } finally {
       if (mounted) setState(() => _isWeaving = false);
       // ignore: avoid_print
-      print('DEBUG: _handleWeaveStory finished');
+      debugPrint('DEBUG: _handleWeaveStory finished');
     }
   }
 
   Future<void> _loadData() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Load Cast
-    final String? castJson = prefs.getString('cast_data');
-    if (castJson != null) {
-      try {
-        final List<dynamic> decodedList = jsonDecode(castJson) as List<dynamic>;
-        setState(() {
-          _cast = decodedList.map((item) {
-            final Map<String, dynamic> castItem = Map<String, dynamic>.from(item as Map);
-            if (castItem['imageBase64'] != null) {
-              castItem['imageBytes'] = base64Decode(castItem['imageBase64'] as String);
-            }
-            return castItem;
-          }).toList();
-        });
-      } on Object catch (e) {
-            // ignore: avoid_print
-        print('Error loading cast: $e');
-      }
-    }
+    // Load Cast from Hive
+    _cast = await _storageService.loadCast();
 
-    // Load Stories
-    final String? storiesJson = prefs.getString('stories_data');
-    if (storiesJson != null) {
-      try {
-        final List<dynamic> decodedList = jsonDecode(storiesJson) as List<dynamic>;
-        setState(() {
-          _stories = decodedList.map((item) => Map<String, dynamic>.from(item as Map)).toList();
-        });
-      } on Object catch (e) {
-            // ignore: avoid_print
-        print('Error loading stories: $e');
-      }
-    }
+    // Load Stories from Hive
+    _stories = await _storageService.loadStories();
+    
+    // Auto-migration is now handled by StorageService.init()
+    
+    setState(() {}); // Refresh UI
   }
 
   Future<void> _saveStories() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonList = _stories.map((s) => s).toList(); 
-    await prefs.setString('stories_data', jsonEncode(jsonList));
+     // No-op for bulk save, as we save individually now via StorageService.saveStory
+     // But if we delete/rename, we should call StorageService methods.
   }
 
   void _renameStory(int index) {
@@ -194,10 +193,12 @@ class _StoriesPageState extends ConsumerState<StoriesPage> {
             onPressed: () {
               setState(() {
                 _stories[index]['title'] = renameController.text;
-                // If this is the current story being viewed, we might need to update that too if it's a reference issue,
-                // but since we are in list view when renaming, it should be fine.
               });
-              unawaited(_saveStories());
+              
+              // Persist change
+              final story = _stories[index];
+              unawaited(_storageService.saveStory(story));
+              
               Navigator.pop(context);
             },
             child: const Text('Save'),
@@ -220,10 +221,14 @@ class _StoriesPageState extends ConsumerState<StoriesPage> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           TextButton(
             onPressed: () {
+              final id = _stories[index]['id'] as String;
               setState(() {
                 _stories.removeAt(index);
               });
-              unawaited(_saveStories());
+              
+              // Delete from storage
+              unawaited(_storageService.deleteStory(id));
+              
               Navigator.pop(context);
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
@@ -231,6 +236,41 @@ class _StoriesPageState extends ConsumerState<StoriesPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _restoreStory(int index) async {
+      final story = _stories[index];
+      final id = story['id'] as String;
+      
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Undo Changes?'),
+          content: const Text('Revert this story to its previous version? This cannot be undone.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Restore')),
+          ],
+        ),
+      );
+
+      if (confirm == true) {
+           final success = await _storageService.restorePreviousVersion(id);
+           if (success) {
+               await _loadData(); // Reload all to be safe
+               if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                     const SnackBar(content: Text('Story restored to previous version!')),
+                  );
+               }
+           } else {
+               if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                     const SnackBar(content: Text('No previous version found to restore.')),
+                  );
+               }
+           }
+      }
   }
 
   @override
@@ -247,26 +287,39 @@ class _StoriesPageState extends ConsumerState<StoriesPage> {
             final headerSize = isSmallScreen ? 18.0 : 24.0;
             
             return TelluluCard( 
-              maxWidth: isSmallScreen ? 400 : 700, // Wider for stories grid on large screens
-              child: SingleChildScrollView( // Add ScrollView back for the main page wrapper
-                child: Column(
-                  children: [
-                    // Header
-                     _buildHeader(context, fontSize: headerSize),
-        
-                    // Content
-                    Padding( // Add some padding around the dynamic content
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      child: _buildContent(isSmallScreen), // Pass responsive flag
+              maxWidth: isSmallScreen ? 400 : 700, 
+              isScrollable: _viewMode != StoriesViewMode.read, // Disable scrolling for Read mode to allow Expanded
+              child: _viewMode == StoriesViewMode.read
+                  ? Column(
+                      children: [
+                        _buildHeader(context, fontSize: headerSize),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: _buildContent(isSmallScreen),
+                          ),
+                        ),
+                      ],
+                    )
+                  : SingleChildScrollView( 
+                      child: Column(
+                        children: [
+                          // Header
+                           _buildHeader(context, fontSize: headerSize),
+              
+                          // Content
+                          Padding( // Add some padding around the dynamic content
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: _buildContent(isSmallScreen), // Pass responsive flag
+                          ),
+                          
+                          const SizedBox(height: 16),
+              
+                          // Bottom Nav
+                          if (_viewMode == StoriesViewMode.list) _buildBottomNav(isSmallScreen),
+                        ],
+                      ),
                     ),
-                    
-                    const SizedBox(height: 16),
-        
-                    // Bottom Nav
-                    if (_viewMode == StoriesViewMode.list) _buildBottomNav(isSmallScreen),
-                  ],
-                ),
-              ),
             );
           }
         ),
@@ -380,12 +433,33 @@ class _StoriesPageState extends ConsumerState<StoriesPage> {
           cast: _cast,
           onWeaveStory: _handleWeaveStory,
           isWeaving: _isWeaving,
+          weavingStatus: _weavingStatus, // [NEW]
         );
       case StoriesViewMode.read:
         if (_currentStory != null) {
-           return StoryResultView(
+          return StoryResultView(
             story: _currentStory!,
             onBack: () => setState(() => _viewMode = StoriesViewMode.list),
+            geminiService: _geminiService,
+            stabilityService: _stabilityService,
+            cfgScale: 30.0 - ((ref.read(creativityProvider).value ?? 0.35) * 25.0), // [V10] Same formula as initial generation
+            stabilityModel: ref.read(stabilityModelProvider).value ?? 'stable-diffusion-xl-1024-v1-0', // [V10] From settings
+            onRestore: () async {
+               final id = _currentStory!['id'] as String;
+               final success = await _storageService.restorePreviousVersion(id);
+               if (success) {
+                   final restored = _storageService.getStory(id);
+                   if (restored != null) {
+                       setState(() {
+                           final index = _stories.indexWhere((s) => s['id'] == id);
+                           if (index != -1) _stories[index] = restored;
+                           _currentStory = restored;
+                       });
+                       return restored;
+                   }
+               }
+               return null;
+            },
             onSave: (updatedStory) {
               setState(() {
                  // Find and update the story in the main list
@@ -395,7 +469,24 @@ class _StoriesPageState extends ConsumerState<StoriesPage> {
                     _currentStory = updatedStory; // Keep current view in sync
                  }
               });
-              unawaited(_saveStories());
+              
+              // Auto-save robustly
+              // [FIX] Safe Merge Strategy:
+              // Fetch latest from storage (in case background sync updated it)
+              // and only apply changes from the View (Pages & Cast).
+              Future.microtask(() async {
+                  final latest = _storageService.getStory(updatedStory['id']);
+                  if (latest != null) {
+                     // MERGE: Keep latest metadata (cover, title, vibe) but take new content
+                     latest['pages'] = updatedStory['pages'];
+                     latest['cast'] = updatedStory['cast']; // In case of repairs
+                     
+                     await _storageService.saveStory(latest);
+                  } else {
+                     // Fallback if not found (new story?)
+                     await _storageService.saveStory(updatedStory);
+                  }
+              });
             },
           );
         } else {
@@ -572,9 +663,11 @@ class _StoriesPageState extends ConsumerState<StoriesPage> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                         _buildIconAction(Icons.history, () => _restoreStory(index)), // [NEW] Restore
+                         const SizedBox(width: 4),
                          _buildIconAction(Icons.edit, () => _renameStory(index)),
-                          const SizedBox(width: 4),
-                          _buildIconAction(Icons.delete, () => _deleteStory(index), isDestructive: true),
+                         const SizedBox(width: 4),
+                         _buildIconAction(Icons.delete, () => _deleteStory(index), isDestructive: true),
                       ],
                     ),
                  ),
@@ -652,16 +745,10 @@ class _StoriesPageState extends ConsumerState<StoriesPage> {
   }
 
   Widget _buildBottomNav(bool isSmallScreen) {
-    return Row( // Changed from padding+row to just row matching Friends page
+    return Row( 
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
-        _buildNavIcon(Icons.home_outlined, 'Home', onTap: () {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute<void>(builder: (context) => const HomePage()),
-              (route) => false,
-            );
-        }),
+        _buildNavIcon(Icons.logout_outlined, 'Log Off', onTap: () => _showLogOffDialog(context)),
         _buildNavIcon(Icons.edit_outlined, 'Friends', onTap: () {
             Navigator.pushReplacement(
               context, 
@@ -669,7 +756,13 @@ class _StoriesPageState extends ConsumerState<StoriesPage> {
             );
         }),
         _buildNavIcon(Icons.book_outlined, 'Stories', isActive: true),
-        _buildNavIcon(Icons.person_outline, 'Profile'),
+        // v1.1.0: "Profile" -> "Publish"
+        _buildNavIcon(Icons.publish, 'Publish', onTap: () {
+             Navigator.push(
+               context,
+               MaterialPageRoute<void>(builder: (context) => const PublishPage()),
+             );
+        }),
       ],
     );
   }
@@ -690,8 +783,42 @@ class _StoriesPageState extends ConsumerState<StoriesPage> {
             style: GoogleFonts.quicksand(
               fontSize: 12,
               fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-               color: isActive ? const Color(0xFF9FA0CE) : Theme.of(context).textTheme.bodySmall?.color,
+              color: isActive ? const Color(0xFF9FA0CE) : Theme.of(context).textTheme.bodySmall?.color,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLogOffDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Log Off?', style: GoogleFonts.quicksand(fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to go back to the login screen?', style: GoogleFonts.quicksand()),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context); // Close dialog
+              
+              // [FIX] Safe Logout Sequence
+              await FirebaseAuth.instance.signOut();
+              if (context.mounted) {
+                 await ref.read(storageServiceProvider).init(); // Switch to Guest/Legacy box
+              }
+
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HomePage()),
+                  (route) => false,
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF9FA0CE), foregroundColor: Colors.white),
+            child: const Text('Log Off'),
           ),
         ],
       ),

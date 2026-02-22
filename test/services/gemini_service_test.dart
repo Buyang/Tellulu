@@ -13,11 +13,9 @@ void main() {
   group('GeminiService', () {
     late GeminiService service;
     late MockClient mockClient;
-    const apiKey = 'fake-key';
-
     setUp(() {
       mockClient = MockClient();
-      service = GeminiService(apiKey, client: mockClient);
+      service = GeminiService(client: mockClient);
     });
 
     test('generateCharacterDescription returns text on success', () async {

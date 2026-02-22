@@ -48,7 +48,7 @@ final class GeminiServiceProvider
   }
 }
 
-String _$geminiServiceHash() => r'ca2b4dbb22488b3725082bbfd870eb966f54f2ff';
+String _$geminiServiceHash() => r'2ddc7a773f54f197b72e9d012cde990079a6208c';
 
 @ProviderFor(stabilityService)
 final stabilityServiceProvider = StabilityServiceProvider._();
@@ -94,4 +94,45 @@ final class StabilityServiceProvider
   }
 }
 
-String _$stabilityServiceHash() => r'918cfd80c70f254057bffd01d1f79e447002e4e4';
+String _$stabilityServiceHash() => r'996e98ef5445516a0ab2fd65175950d35decb37c';
+
+@ProviderFor(storageService)
+final storageServiceProvider = StorageServiceProvider._();
+
+final class StorageServiceProvider
+    extends $FunctionalProvider<StorageService, StorageService, StorageService>
+    with $Provider<StorageService> {
+  StorageServiceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'storageServiceProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$storageServiceHash();
+
+  @$internal
+  @override
+  $ProviderElement<StorageService> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  StorageService create(Ref ref) {
+    return storageService(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(StorageService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<StorageService>(value),
+    );
+  }
+}
+
+String _$storageServiceHash() => r'62cbe9319bc400f2f78b16bce45d667585b592a2';

@@ -1,11 +1,28 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tellulu/common/app_config.dart';
 import 'package:tellulu/features/home/home_page.dart';
 import 'package:tellulu/providers/settings_providers.dart';
 
+import 'firebase_options.dart';
+
 void main() async {
-  await dotenv.load();
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Log configuration status (Debug only)
+  AppConfig.logConfigStatus();
+  
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint('⚠️ Firebase Init Failed: $e');
+    debugPrint('Run `flutterfire configure` to generate firebase_options.dart');
+    AppConfig.firebaseAvailable = false;
+  }
+
   runApp(const ProviderScope(child: MyApp()));
 }
 
@@ -18,7 +35,7 @@ class MyApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp(
-      title: 'Tellulu Tales',
+      title: 'Tellulu',
       debugShowCheckedModeBanner: false,
       themeMode: themeMode.value ?? ThemeMode.light,
       builder: (context, child) {

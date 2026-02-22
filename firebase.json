@@ -1,4 +1,19 @@
 {
+    "firestore": {
+        "rules": "firestore.rules"
+    },
+    "functions": [
+        {
+            "source": "functions",
+            "codebase": "default",
+            "ignore": [
+                "node_modules",
+                ".git",
+                "firebase-debug.log",
+                "firebase-debug.*.log"
+            ]
+        }
+    ],
     "hosting": {
         "public": "build/web",
         "ignore": [
@@ -21,8 +36,12 @@
                         "value": "no-cache, no-store, must-revalidate"
                     },
                     {
+                        "key": "Cross-Origin-Opener-Policy",
+                        "value": "same-origin-allow-popups"
+                    },
+                    {
                         "key": "Content-Security-Policy",
-                        "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://accounts.google.com https://apis.google.com https://appleid.cdn-apple.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.googleusercontent.com; connect-src 'self' https://www.gstatic.com https://fonts.googleapis.com https://fonts.gstatic.com https://generativelanguage.googleapis.com https://api.stability.ai https://*.googleapis.com https://accounts.google.com https://appleid.apple.com; frame-src 'self' https://accounts.google.com https://content.googleapis.com https://appleid.apple.com; worker-src 'self' blob:;"
+                        "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.googleusercontent.com https://firebasestorage.googleapis.com; connect-src 'self' https://us-central1-tellulu.cloudfunctions.net https://generativelanguage.googleapis.com https://api.stability.ai https://*.googleapis.com https://*.gstatic.com https://firebasestorage.googleapis.com data: blob:; worker-src 'self' blob:;"
                     }
                 ]
             },
@@ -40,10 +59,48 @@
                 "headers": [
                     {
                         "key": "Content-Security-Policy",
-                        "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://accounts.google.com https://apis.google.com https://appleid.cdn-apple.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.googleusercontent.com; connect-src 'self' https://www.gstatic.com https://fonts.googleapis.com https://fonts.gstatic.com https://generativelanguage.googleapis.com https://api.stability.ai https://*.googleapis.com https://accounts.google.com https://appleid.apple.com; frame-src 'self' https://accounts.google.com https://content.googleapis.com https://appleid.apple.com; worker-src 'self' blob:;"
+                        "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://www.google.com https://www.gstatic.com https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.googleusercontent.com https://firebasestorage.googleapis.com; connect-src 'self' https://www.gstatic.com https://fonts.gstatic.com https://accounts.google.com https://apis.google.com https://us-central1-tellulu.cloudfunctions.net https://generativelanguage.googleapis.com https://api.stability.ai https://*.googleapis.com https://*.gstatic.com https://firebasestorage.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com data: blob:; frame-src 'self' https://accounts.google.com https://apis.google.com; worker-src 'self' blob:;"
                     }
                 ]
             }
         ]
+    },
+    "flutter": {
+        "platforms": {
+            "android": {
+                "default": {
+                    "projectId": "tellulu",
+                    "appId": "1:608345659362:android:73b460ed6f30d466904bbb",
+                    "fileOutput": "android/app/google-services.json"
+                }
+            },
+            "ios": {
+                "default": {
+                    "projectId": "tellulu",
+                    "appId": "1:608345659362:ios:af43fba0578673e4904bbb",
+                    "uploadDebugSymbols": false,
+                    "fileOutput": "ios/Runner/GoogleService-Info.plist"
+                }
+            },
+            "macos": {
+                "default": {
+                    "projectId": "tellulu",
+                    "appId": "1:608345659362:ios:af43fba0578673e4904bbb",
+                    "uploadDebugSymbols": false,
+                    "fileOutput": "macos/Runner/GoogleService-Info.plist"
+                }
+            },
+            "dart": {
+                "lib/firebase_options.dart": {
+                    "projectId": "tellulu",
+                    "configurations": {
+                        "android": "1:608345659362:android:73b460ed6f30d466904bbb",
+                        "ios": "1:608345659362:ios:af43fba0578673e4904bbb",
+                        "macos": "1:608345659362:ios:af43fba0578673e4904bbb",
+                        "web": "1:608345659362:web:03034f8e2f048850904bbb"
+                    }
+                }
+            }
+        }
     }
 }

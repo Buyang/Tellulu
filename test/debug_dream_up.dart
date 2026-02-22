@@ -1,24 +1,16 @@
 // ignore_for_file: avoid_print
-import 'dart:io';
 
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:tellulu/common/app_config.dart';
 import 'package:tellulu/services/gemini_service.dart';
 
 Future<void> main() async {
-  final envFile = File('.env');
-  if (!envFile.existsSync()) {
-    print('ERROR: .env file not found');
-    return;
-  }
-  await dotenv.load(fileName: '.env');
-
-  final geminiKey = dotenv.env['GEMINI_KEY'] ?? '';
-  if (geminiKey.isEmpty) {
-    print('ERROR: GEMINI_KEY missing in .env');
+  // Check keys from --dart-define
+  if (AppConfig.geminiKey.isEmpty) {
+    print('ERROR: GEMINI_KEY missing. Run with --dart-define-from-file=.env');
     return;
   }
 
-  final service = GeminiService(geminiKey);
+  final service = GeminiService();
   
   // Model selected by user
   const model = 'gemini-2.0-flash-exp';
