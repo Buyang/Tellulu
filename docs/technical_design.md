@@ -3,7 +3,7 @@
 > [!NOTE]
 > **Status:** Living Document  
 > **App:** Tellulu (Flutter + GenAI Storytelling)  
-> **Last Updated:** Feb 19, 2026  
+> **Last Updated:** Feb 22, 2026  
 > **Version:** 1.2.0
 
 ## 1. Executive Summary
@@ -23,6 +23,7 @@ Tellulu is a cross-platform (Mobile + Web) storytelling application built with *
 
 | Date | Version | Changes |
 |---|---|---|
+| Feb 22, 2026 | 1.2.0 | Added Version Control & Repository section (§8.4), GitHub remote configured, release tag `v1.2.0` created |
 | Feb 19, 2026 | 1.2.0 | Alignment assessment (§A5), 6 ADRs added (§3.2, §4.2, §9, §A3), expanded vibe table to 20 entries, Completer init lock promoted to §6.1, A1/A2 extracted to `docs/guides/` |
 | Feb 19, 2026 | 1.1.3 | Code quality audit (§A4): 23 findings addressed, security hardening, typed exceptions, shared utilities |
 | Jan 2026 | 1.0.3 | Data safety audit (§A3): user-scoped boxes, version history, SyncQueue, Completer lock |
@@ -335,7 +336,23 @@ Tellulu puts user ownership first.
 
 ### 8.3 Build Automation
 *   `deploy_web.sh`: Automates the clean, build, and deploy process for Web.
-*   **CI Pipeline:** Not yet implemented. See §A5 Recommendation #7.
+*   **CI Pipeline:** GitHub Actions (`.github/workflows/ci.yml`) runs `flutter analyze` and `flutter test` on every push to `main`.
+
+### 8.4 Version Control & Repository
+*   **Repository:** [github.com/Buyang/Tellulu](https://github.com/Buyang/Tellulu) (private)
+*   **Branch Strategy:** Single `main` branch (trunk-based development). Feature branches to be adopted when team size exceeds 1.
+*   **Release Tagging:** Annotated tags (`v1.2.0`) on release commits. Tags match the `version:` field in `pubspec.yaml`.
+*   **Authentication:** GitHub CLI (`gh`) with HTTPS protocol.
+*   **`.gitignore` Coverage:**
+    *   `.env` / `functions/.env` — API keys and secrets
+    *   `build/` / `node_modules/` — build artifacts and dependencies
+    *   `*.zip`, `build_log.txt`, `error_log.txt` — temporary files
+*   **Commit History:**
+    | Tag | Commit | Description |
+    |---|---|---|
+    | — | `77e9dc5` | Tellulu Tales V1 — initial release with Gemini 2.0 and seed locking |
+    | — | `e6a45b8` | Release v1.0.2 — deep lint resolution, security hardening |
+    | `v1.2.0` | `88d7998` | Recover data flow, cloud sync, auth improvements, stability fixes |
 
 ---
 
@@ -586,7 +603,7 @@ Each claim was verified and rated:
 | 3.2 | Style Enforcement | Partial | Emergency fallback to "digital-art" exists. **Resolved:** Doc updated to "Loud Fallbacks" ADR (§3.2) |
 | 3.3 | Reliability | Aligned | Typed exceptions, Firebase graceful degradation, and atomic sync all confirmed |
 | 3.4 | Data Continuity | Aligned | Version history box, SyncQueue, and Completer lock all verified |
-| 3.5 | Engineering Excellence | Partial | `flutter analyze` clean (0 errors), but no CI pipeline (no `.github/workflows/`) |
+| 3.5 | Engineering Excellence | Aligned | `flutter analyze` clean (0 errors), CI pipeline configured (`.github/workflows/ci.yml`), GitHub repo active |
 
 #### §4 System Architecture
 
